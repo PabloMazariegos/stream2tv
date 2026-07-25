@@ -1,0 +1,4 @@
+upnpclient
+streamlink
+textual
+yt-dlp

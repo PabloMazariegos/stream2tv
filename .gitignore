@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Sistema / editores
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Transcripts de sesiones locales: contienen rutas e IPs personales
+docs/conversacion-*.md
