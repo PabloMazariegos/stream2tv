@@ -112,12 +112,18 @@ def desde_ip(ip, puertos=(1700, 8080, 9197, 49152, 49153, 55000)):
     no encuentra nada, pero la TV si es alcanzable.
     """
     rutas = ("/", "/description.xml", "/dmr.xml", "/MediaRenderer.xml", "/upnp/desc.xml")
-    for puerto in puertos:
-        for ruta in rutas:
-            tv = _construir(f"http://{ip}:{puerto}{ruta}")
+    candidatas = [f"http://{ip}:{puerto}{ruta}" for puerto in puertos for ruta in rutas]
+    # En paralelo: en serie eran 30 pedidos, cada uno esperando su timeout.
+    # map conserva el orden, asi que gana la primera combinacion que responda.
+    pool = ThreadPoolExecutor(max_workers=10)
+    try:
+        for tv in pool.map(_construir, candidatas):
             if tv is not None:
                 return tv
-    return None
+        return None
+    finally:
+        # Sin esperar a los pedidos que siguen colgados: ya hay respuesta.
+        pool.shutdown(wait=False, cancel_futures=True)
 
 
 def ip_local_hacia(destino):

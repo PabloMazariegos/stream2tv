@@ -102,7 +102,7 @@ class TestServidorLimpia(unittest.TestCase):
 
     def test_detener_mata_el_proceso_del_stream(self):
         with mock.patch.object(caster, "comando_streamlink", return_value=self.comando):
-            servidor = caster.Servidor("http://ejemplo", self.puerto, log=lambda *_: None)
+            servidor = caster.Servidor("http://ejemplo", self.puerto, log=lambda *_: None, backend="streamlink")
             proc = self._arrancar_y_conectar(servidor)
             pid = proc.pid
             servidor.detener()
@@ -110,7 +110,7 @@ class TestServidorLimpia(unittest.TestCase):
 
     def test_detener_libera_el_puerto(self):
         with mock.patch.object(caster, "comando_streamlink", return_value=self.comando):
-            servidor = caster.Servidor("http://ejemplo", self.puerto, log=lambda *_: None)
+            servidor = caster.Servidor("http://ejemplo", self.puerto, log=lambda *_: None, backend="streamlink")
             self._arrancar_y_conectar(servidor)
             servidor.detener()
             # Si el puerto no se libero, este bind falla.
@@ -123,7 +123,7 @@ class TestServidorLimpia(unittest.TestCase):
 
     def test_apagar_todo_alcanza_servidores_sin_referencia(self):
         with mock.patch.object(caster, "comando_streamlink", return_value=self.comando):
-            servidor = caster.Servidor("http://ejemplo", self.puerto, log=lambda *_: None)
+            servidor = caster.Servidor("http://ejemplo", self.puerto, log=lambda *_: None, backend="streamlink")
             proc = self._arrancar_y_conectar(servidor)
             pid = proc.pid
             del servidor  # se pierde la referencia, como al salir de golpe
@@ -136,7 +136,7 @@ class TestServidorLimpia(unittest.TestCase):
         bloqueador.bind(("0.0.0.0", self.puerto))
         bloqueador.listen(1)
         try:
-            servidor = caster.Servidor("http://ejemplo", self.puerto, log=lambda *_: None)
+            servidor = caster.Servidor("http://ejemplo", self.puerto, log=lambda *_: None, backend="streamlink")
             with self.assertRaises(caster.PuertoOcupado):
                 servidor.iniciar()
         finally:

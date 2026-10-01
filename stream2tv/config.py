@@ -2,6 +2,7 @@
 
 import json
 import os
+import tempfile
 
 RUTA_CONFIG = os.path.join(
     os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
@@ -14,14 +15,31 @@ def cargar():
     try:
         with open(RUTA_CONFIG) as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+    except FileNotFoundError:
+        return {}
+    except json.JSONDecodeError:
+        # Se aparta el archivo roto en vez de pisarlo con el proximo guardado:
+        # ahi adentro pueden estar los favoritos, recuperables a mano.
+        try:
+            os.replace(RUTA_CONFIG, RUTA_CONFIG + ".corrupto")
+        except OSError:
+            pass
         return {}
 
 
 def guardar(datos):
-    os.makedirs(os.path.dirname(RUTA_CONFIG), exist_ok=True)
-    with open(RUTA_CONFIG, "w") as f:
-        json.dump(datos, f, indent=2)
+    """Escribe a un temporal y lo renombra: un corte a mitad no deja el JSON roto."""
+    directorio = os.path.dirname(RUTA_CONFIG)
+    os.makedirs(directorio, exist_ok=True)
+    fd, temporal = tempfile.mkstemp(dir=directorio, prefix=".config-", suffix=".json")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(datos, f, indent=2)
+        os.replace(temporal, RUTA_CONFIG)
+    except BaseException:
+        if os.path.exists(temporal):
+            os.remove(temporal)
+        raise
 
 
 def tv_por_defecto():

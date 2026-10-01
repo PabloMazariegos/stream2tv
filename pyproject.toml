@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stream2tv"
+dynamic = ["version"]
+description = "Transmite streams en vivo (Kick, Twitch, YouTube y mas) a una TV DLNA, sin Chromecast."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+# Minimos = versiones con las que se probo. Kick y YouTube cambian seguido y
+# las versiones viejas de streamlink/yt-dlp dejan de funcionar con ellos.
+dependencies = [
+    "streamlink>=8.6.1",
+    "yt-dlp>=2026.8.19",
+    "textual>=8.2",
+    "upnpclient>=2.0.3",
+]
+
+[project.scripts]
+stream2tv = "stream2tv.cli:main"
+kick2tv = "stream2tv.cli:main_kick"
+twitch2tv = "stream2tv.cli:main_twitch"
+
+[tool.setuptools]
+packages = ["stream2tv"]
+
+[tool.setuptools.dynamic]
+version = { attr = "stream2tv.__version__" }

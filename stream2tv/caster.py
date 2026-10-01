@@ -1,6 +1,7 @@
 """Servidor HTTP local que alimenta el stream, y control DLNA de la TV."""
 
 import atexit
+import collections
 import http.server
 import os
 import shutil
@@ -9,6 +10,7 @@ import subprocess
 import sys
 import threading
 import time
+from xml.sax.saxutils import escape
 
 RUTA_STREAM = "/stream.ts"
 ESTADOS_REPRODUCIENDO = ("PLAYING", "TRANSITIONING")
@@ -74,8 +76,9 @@ def encontrar_streamlink():
     ruta = shutil.which("streamlink")
     if ruta:
         return ruta
-    print("No se encontro streamlink. Instalalo con: pip install streamlink")
-    raise SystemExit(1)
+    # Excepcion y no SystemExit: esto corre en threads (el handler HTTP, los
+    # workers de la TUI), donde un SystemExit mata el hilo sin avisar nada.
+    raise FaltaBackend("No se encontro streamlink. Instalalo con: pip install streamlink")
 
 
 def encontrar_ytdlp():
@@ -136,6 +139,7 @@ def prefiere_ytdlp(url):
 
 
 _sesion_streamlink = None
+_LOCK_SESION = threading.Lock()
 
 
 def streamlink_soporta(url):
@@ -150,9 +154,11 @@ def streamlink_soporta(url):
     except ImportError:
         return True
     try:
-        if _sesion_streamlink is None:
-            _sesion_streamlink = Streamlink()
-        _sesion_streamlink.resolve_url_no_redirect(url)
+        # La TUI puede consultar desde varios workers a la vez.
+        with _LOCK_SESION:
+            if _sesion_streamlink is None:
+                _sesion_streamlink = Streamlink()
+            _sesion_streamlink.resolve_url_no_redirect(url)
         return True
     except NoPluginError:
         return False
@@ -236,16 +242,46 @@ def canal_en_vivo(url, calidad="best", timeout=40, backend="auto"):
     return False, (motivo[-1] if motivo else "el canal no parece estar en vivo")
 
 
+LINEAS_STDERR = 15
+
+
+def _juntar_stderr(proc, destino):
+    """Guarda las ultimas lineas de stderr del backend, para explicar un corte."""
+    try:
+        for linea in iter(proc.stderr.readline, b""):
+            texto = linea.decode(errors="replace").strip()
+            if texto:
+                destino.append(texto)
+    except (OSError, ValueError):
+        pass
+
+
 class Servidor:
     """Sirve el MPEG-TS de streamlink en http://<ip_local>:<puerto>/stream.ts.
 
     streamlink recien arranca cuando la TV pide el archivo, asi no se consume
     ancho de banda mientras la TV decide conectarse.
+
+    Se atiende un solo stream a la vez: si llega otro pedido (la TV que
+    reconecta), se corta el anterior en vez de lanzar otra descarga en paralelo.
+    Con cliente_permitido, solo esa IP (la de la TV) puede pedir el stream.
     """
 
-    def __init__(self, url, puerto, calidad="best", low_latency=False, log=print, backend="auto"):
+    def __init__(
+        self,
+        url,
+        puerto,
+        calidad="best",
+        low_latency=False,
+        log=print,
+        backend="auto",
+        host="0.0.0.0",
+        cliente_permitido=None,
+    ):
         self.url = url
         self.puerto = puerto
+        self.host = host
+        self.cliente_permitido = cliente_permitido
         self.calidad = calidad
         self.low_latency = low_latency
         self.backend = backend
@@ -253,6 +289,8 @@ class Servidor:
         # ahi encima romperia el dibujado de la pantalla.
         self.log = log
         self._procesos = []
+        # Procesos que cortamos a proposito: su fin no es un error a reportar.
+        self._cortados = set()
         self._lock = threading.Lock()
         self._httpd = None
         self._hilo = None
@@ -285,6 +323,11 @@ class Servidor:
                     self.send_response(404)
                     self.end_headers()
                     return
+                if servidor.cliente_permitido and self.client_address[0] != servidor.cliente_permitido:
+                    servidor.log(f"Pedido rechazado desde {self.client_address[0]} (no es la TV).")
+                    self.send_response(403)
+                    self.end_headers()
+                    return
 
                 try:
                     comando = comando_stream(
@@ -296,15 +339,19 @@ class Servidor:
                     self.end_headers()
                     return
 
-                servidor.log(f"TV conectada, bajando {servidor.url} con {os.path.basename(comando[0])}")
+                servidor._cortar_procesos()
+                backend = os.path.basename(comando[0])
+                servidor.log(f"TV conectada, bajando {servidor.url} con {backend}")
                 proc = subprocess.Popen(
                     comando,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
                     bufsize=0,
                     # Grupo de procesos propio, para poder matarlo entero despues.
                     start_new_session=True,
                 )
+                errores = collections.deque(maxlen=LINEAS_STDERR)
+                threading.Thread(target=_juntar_stderr, args=(proc, errores), daemon=True).start()
                 with servidor._lock:
                     servidor._procesos.append(proc)
 
@@ -316,10 +363,22 @@ class Servidor:
                         if not chunk:
                             break
                         self.wfile.write(chunk)
+                    if proc not in servidor._cortados:
+                        # El backend termino solo: sin su stderr no habia forma
+                        # de saber si fue un timeout, un 403 o el fin del stream.
+                        try:
+                            codigo = proc.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            codigo = None
+                        motivo = " | ".join(list(errores)[-3:]) or "sin detalle"
+                        servidor.log(f"{backend} termino (codigo {codigo}): {motivo}")
                 except (BrokenPipeError, ConnectionResetError):
                     servidor.log("La TV cerro la conexion.")
                 finally:
                     matar_arbol(proc)
+                    servidor._cortados.discard(proc)
+                    if proc.stderr is not None:
+                        proc.stderr.close()
                     # Se cierra aca y no en matar_arbol: este es el unico hilo
                     # que lee el pipe, y cerrarlo mientras lee daria ValueError.
                     if proc.stdout is not None:
@@ -336,7 +395,7 @@ class Servidor:
     def iniciar(self):
         try:
             self._httpd = http.server.ThreadingHTTPServer(
-                ("0.0.0.0", self.puerto), self._handler()
+                (self.host, self.puerto), self._handler()
             )
         except OSError as e:
             raise PuertoOcupado(
@@ -349,11 +408,15 @@ class Servidor:
         with _LOCK_VIVOS:
             _SERVIDORES_VIVOS.add(self)
 
-    def detener(self):
+    def _cortar_procesos(self):
         with self._lock:
             procesos, self._procesos = list(self._procesos), []
+            self._cortados.update(procesos)
         for proc in procesos:
             matar_arbol(proc)
+
+    def detener(self):
+        self._cortar_procesos()
         if self._httpd is not None:
             self._httpd.shutdown()
             self._httpd.server_close()
@@ -368,9 +431,9 @@ def metadata_didl(titulo, stream_url):
         'xmlns:dc="http://purl.org/dc/elements/1.1/" '
         'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/">'
         '<item id="1" parentID="0" restricted="1">'
-        f"<dc:title>{titulo}</dc:title>"
+        f"<dc:title>{escape(titulo)}</dc:title>"
         "<upnp:class>object.item.videoItem</upnp:class>"
-        f'<res protocolInfo="http-get:*:video/mp2t:*">{stream_url}</res>'
+        f'<res protocolInfo="http-get:*:video/mp2t:*">{escape(stream_url)}</res>'
         "</item></DIDL-Lite>"
     )
 

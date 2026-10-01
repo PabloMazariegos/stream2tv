@@ -49,7 +49,7 @@ cd stream-limitless
 ./install.sh
 ```
 
-El script crea un entorno virtual en `~/.local/share/kick-cast-venv`, instala las
+El script crea un entorno virtual en `~/.local/share/stream2tv-venv`, instala las
 dependencias e instala tres comandos en `~/.local/bin`:
 
 | Comando | Qué hace |
@@ -67,6 +67,10 @@ source ~/.bashrc
 
 **No muevas la carpeta del proyecto después de instalar** — los comandos apuntan a
 donde estaba. Si la movés, volvé a correr `./install.sh`.
+
+**Para actualizar**, volvé a correr `./install.sh`: actualiza streamlink, yt-dlp y el
+resto de las dependencias. Conviene hacerlo cuando Kick, Twitch o YouTube dejan de
+andar de golpe, porque suelen cambiar cosas que rompen las versiones viejas.
 
 Verificá que quedó bien:
 
@@ -90,7 +94,7 @@ twitch2tv
 Se abre una app de terminal que queda viva:
 
 ```
-┌─ stream2tv ───────────────────────────────── v0.2.0 ── 09:09 ─┐
+┌─ stream2tv ───────────────────────────────── v0.3.0 ── 09:09 ─┐
 │ TVs en la red          │ Que ver                              │
 │                        │ ┌──────────────────────────────────┐ │
 │ [LG] webOS TV UP7710 * │ │ Twitch                         ▾ │ │
@@ -135,7 +139,7 @@ twitch2tv tw:xqc                       # prefijo explícito: tw: / ki: / yt:
 twitch2tv stop                         # detener la TV
 ```
 
-Queda corriendo en la terminal hasta que le des `Ctrl+C`.
+Queda corriendo en la terminal hasta que le des `Ctrl+C` o hasta que la TV deje de reproducir.
 
 ### Otros sitios
 
@@ -248,7 +252,7 @@ brew install node              # macOS
 Para confirmar que era eso:
 
 ```bash
-~/.local/share/kick-cast-venv/bin/yt-dlp -F "https://www.youtube.com/watch?v=..."
+~/.local/share/stream2tv-venv/bin/yt-dlp -F "https://www.youtube.com/watch?v=..."
 ```
 
 Si solo lista formatos chicos, era eso. El techo con H.264 es 1080p: los formatos de
@@ -269,8 +273,8 @@ con `--no-check`.
 ### ¿Un sitio está soportado?
 
 ```bash
-~/.local/share/kick-cast-venv/bin/streamlink --plugins
-~/.local/share/kick-cast-venv/bin/streamlink "https://sitio/lo-que-sea"
+~/.local/share/stream2tv-venv/bin/streamlink --plugins
+~/.local/share/stream2tv-venv/bin/streamlink "https://sitio/lo-que-sea"
 ```
 
 Si streamlink no lo tiene, se intenta con yt-dlp automáticamente. Si ninguno lo
@@ -283,7 +287,7 @@ solo le pasa la URL a esas dos herramientas.
 
 ```bash
 rm ~/.local/bin/stream2tv ~/.local/bin/kick2tv ~/.local/bin/twitch2tv
-rm -rf ~/.local/share/kick-cast-venv
+rm -rf ~/.local/share/stream2tv-venv
 rm -rf ~/.config/stream2tv
 ```
 

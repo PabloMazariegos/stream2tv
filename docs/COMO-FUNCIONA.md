@@ -147,7 +147,10 @@ de ruteo.
 
 ## El servidor: el corazón del asunto (`caster.py:239`)
 
-Un `ThreadingHTTPServer` en `0.0.0.0:8090` que responde una sola ruta: `/stream.ts`.
+Un `ThreadingHTTPServer` en `<ip_local>:8090` que responde una sola ruta: `/stream.ts`.
+Escucha solo en la interfaz que llega a la TV y **solo le contesta a la IP de la TV**
+(`cliente_permitido`): cualquier otro equipo de la red recibe un `403` y no puede
+disparar descargas.
 
 **El truco central: `streamlink` no arranca al iniciar el servidor, sino cuando la
 TV pide el archivo** — dentro del `do_GET` (`caster.py:283`). Así no se consume ancho
@@ -155,7 +158,8 @@ de banda mientras la TV decide si se conecta o no.
 
 Cuando la TV hace el GET:
 
-1. Se lanza `streamlink`/`yt-dlp` con `subprocess.Popen(..., stdout=PIPE)`.
+1. Si había otro stream en curso (la TV que reconecta), se corta: **una descarga a la vez**.
+   Después se lanza `streamlink`/`yt-dlp` con `subprocess.Popen(..., stdout=PIPE, stderr=PIPE)`.
 2. Se responde `200` con `Content-Type: video/mp2t` y **sin `Content-Length`** —
    es un stream infinito, no se sabe cuánto mide.
 3. Bucle: leer del pipe del proceso, escribir al socket de la TV. Se lee en bloques
@@ -164,6 +168,11 @@ Cuando la TV hace el GET:
 
 Cuando la TV corta la conexión salta `BrokenPipeError`, y el `finally` mata el
 proceso.
+
+Si en cambio es **el backend el que termina solo** (Kick tiró un timeout, un `403`, se
+cortó el stream), se loguea su código de salida y las últimas líneas de su `stderr`,
+que se van juntando en un hilo aparte. Antes ese `stderr` iba a `/dev/null` y un corte
+a mitad de stream no dejaba ninguna pista.
 
 ### Por qué MPEG-TS y no otra cosa
 
@@ -196,9 +205,10 @@ av.SetAVTransportURI(InstanceID=0, CurrentURI="http://192.168.0.2:8090/stream.ts
 av.Play(InstanceID=0, Speed="1")
 ```
 
-El **DIDL-Lite** (`metadata_didl`, `caster.py:365`) es un XML que describe el
+El **DIDL-Lite** (`metadata_didl`) es un XML que describe el
 contenido: título, que es un `videoItem`, y el `protocolInfo`
-`http-get:*:video/mp2t:*`. Varias TVs se niegan a reproducir si no viene, o lo usan
+`http-get:*:video/mp2t:*`. El título y la URL van **escapados**: una URL de YouTube
+con `&t=10` generaba un XML inválido y la TV lo rechazaba. Varias TVs se niegan a reproducir si no viene, o lo usan
 para decidir el decodificador.
 
 Este paso parece trivial y fue el que más problemas dio, por dos razones:
@@ -233,6 +243,12 @@ grupo entero con `os.killpg` (`matar_arbol`, `caster.py:34`).
 segundo plano; al salir enseguida, Textual lo cancelaba a mitad y la TV nunca recibía
 el `Stop`. Ahora es sincrónica.
 
+**4. Arranques en paralelo.** Los workers de Textual corren en threads y no se pueden
+matar: `exclusive=True` solo los *marca* como cancelados. Apretar Reproducir dos veces
+mientras Kick tardaba dejaba dos arranques compitiendo por el puerto ("Puerto
+ocupado"). Ahora arrancar, detener y el monitor de estado pasan por un mismo lock, y
+un arranque cancelado se descarta antes de tocar la TV.
+
 **3. Salir por caminos raros no pasaba por la limpieza.** `Ctrl+C`, una excepción,
 cerrar la terminal. Solución: un registro global de servidores vivos
 (`_SERVIDORES_VIVOS`) y un `atexit.register(apagar_todo)` (`caster.py:66`) que apaga
@@ -242,16 +258,18 @@ todo pase lo que pase.
 
 ## Recorrido completo de `twitch2tv xqc`
 
-1. `bin/twitch2tv` → `cli.main(plataforma_default="twitch")`.
+1. `twitch2tv` (entry point de `pyproject.toml`) → `cli.main_twitch()` → `cli.main(plataforma_default="twitch")`.
 2. `resolver_url("xqc", "twitch")` → `https://twitch.tv/xqc` (`plataformas.py:27`).
 3. `obtener_tv()` → SSDP, filtros, TV guardada, o menú (`discovery.elegir`).
 4. `canal_en_vivo()` → ¿hay stream? Si no, sale con el motivo.
-5. `Servidor.iniciar()` → HTTP en `0.0.0.0:8090`, todavía sin bajar nada.
-6. `ip_local_hacia(tv.host)` → `192.168.0.2`.
+5. `ip_local_hacia(tv.host)` → `192.168.0.2`.
+6. `Servidor.iniciar()` → HTTP en `192.168.0.2:8090`, solo para la TV, todavía sin bajar nada.
 7. `reproducir()` → `SetAVTransportURI` + `Play` hacia `http://192.168.0.2:8090/stream.ts`.
 8. La TV hace `GET /stream.ts` → recién ahí arranca `streamlink` y empieza el pipe.
-9. `Ctrl+C` → `detener_tv()` (Stop por DLNA) + `servidor.detener()` (mata el árbol,
-   libera el puerto).
+9. Cada 10 s se le pregunta el estado a la TV; si queda en `STOPPED` dos veces
+   seguidas, el stream se da por terminado.
+10. `Ctrl+C` (o la TV parada) → `detener_tv()` (Stop por DLNA) + `servidor.detener()`
+   (mata el árbol, libera el puerto).
 
 ---
 
@@ -265,7 +283,8 @@ todo pase lo que pase.
 | `config.py` | TV predeterminada y favoritos en `~/.config/stream2tv/config.json` |
 | `cli.py` | Argumentos, modo directo, wizard |
 | `tui.py` | App de terminal (Textual) |
-| `bin/*` | Entry points; `twitch2tv` y `kick2tv` son `stream2tv` con plataforma fijada |
+| `pyproject.toml` | Dependencias y entry points; `twitch2tv` y `kick2tv` son `stream2tv` con plataforma fijada |
+| `bin/*` | Los mismos comandos, para correrlos desde el repo sin instalar |
 
 ---
 

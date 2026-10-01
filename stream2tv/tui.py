@@ -1,8 +1,10 @@
 """Interfaz de terminal (TUI) que queda abierta: elegis TV, canal, y controlas el stream."""
 
+import threading
 from datetime import datetime
 
 from textual import on, work
+from textual.worker import get_current_worker
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -96,6 +98,11 @@ class StreamTVApp(App):
         # termina de verdad. Sin esto, apretar Detener y salir enseguida dejaba
         # la TV reproduciendo: el worker del stop se cancelaba a mitad.
         self._tv_tocada = False
+        # Los workers en thread no se pueden matar: "exclusive" solo los marca
+        # como cancelados. Sin este lock, apretar Reproducir dos veces mientras
+        # el sitio tarda en responder deja dos arranques en paralelo peleando
+        # por el puerto.
+        self._lock_stream = threading.Lock()
         self.udn_defecto, _ = config.tv_por_defecto()
 
     # ---------- layout ----------
@@ -255,10 +262,18 @@ class StreamTVApp(App):
 
     @work(thread=True, exclusive=True, group="stream")
     def iniciar_stream(self, canal, plataforma):
+        with self._lock_stream:
+            self._iniciar_stream(canal, plataforma)
+
+    def _iniciar_stream(self, canal, plataforma):
         url = url_de(canal, plataforma)
         tv = self.tv_actual
+        worker = get_current_worker()
 
-        if self.reproduciendo:
+        if worker.is_cancelled:
+            return
+
+        if self.reproduciendo or self.servidor is not None:
             self.log_desde_hilo("Ya habia un stream activo, lo detengo primero.")
             self.call_from_thread(self.marcar_estado, "Cambiando de canal...", "trabajando")
             self._detener_actual()
@@ -269,6 +284,16 @@ class StreamTVApp(App):
             self.call_from_thread(self.marcar_estado, f"{canal} no esta en vivo", "error")
             self.log_desde_hilo(f"No hay stream: {motivo}")
             return
+        if worker.is_cancelled:
+            # Mientras se verificaba, se pidio otro canal: que arranque ese.
+            return
+
+        try:
+            mi_ip = discovery.ip_local_hacia(tv.host)
+        except OSError as e:
+            self.call_from_thread(self.marcar_estado, "No se llega a la TV", "error")
+            self.log_desde_hilo(f"Error: {e}")
+            return
 
         servidor = caster.Servidor(
             url,
@@ -277,6 +302,8 @@ class StreamTVApp(App):
             self.low_latency,
             log=self.log_desde_hilo,
             backend=self.backend,
+            host=mi_ip,
+            cliente_permitido=tv.host,
         )
         try:
             servidor.iniciar()
@@ -288,7 +315,6 @@ class StreamTVApp(App):
         self.servidor = servidor
         self._tv_tocada = True
         try:
-            mi_ip = discovery.ip_local_hacia(tv.host)
             stream_url = f"http://{mi_ip}:{self.puerto}{caster.RUTA_STREAM}"
             self.call_from_thread(self.marcar_estado, f"Enviando {canal} a la TV...", "trabajando")
             arranco = caster.reproducir(tv, stream_url, f"{canal}", log=self.log_desde_hilo)
@@ -311,8 +337,16 @@ class StreamTVApp(App):
                 self.marcar_estado, f"{canal}: la TV no confirmo, puede arrancar sola", "trabajando"
             )
 
+    def _arrancando(self):
+        return any(w.group == "stream" and w.is_running for w in self.workers)
+
     def action_detener(self):
-        if not self.reproduciendo:
+        if self._arrancando():
+            # El arranque en curso ve la cancelacion despues de verificar el
+            # canal y no llega a mandarle nada a la TV.
+            self.workers.cancel_group(self, "stream")
+            self.log_ui("Se cancela el arranque en curso.", "yellow")
+        elif not self.reproduciendo:
             self.log_ui("No hay nada reproduciendose.", "yellow")
             return
         self.detener_stream()
@@ -320,7 +354,8 @@ class StreamTVApp(App):
     @work(thread=True, group="stop")
     def detener_stream(self):
         self.call_from_thread(self.marcar_estado, "Deteniendo...", "trabajando")
-        self._detener_actual()
+        with self._lock_stream:
+            self._detener_actual()
         self.log_desde_hilo("Stream detenido.")
         self.call_from_thread(self.marcar_estado, "Detenido.")
 
@@ -329,14 +364,26 @@ class StreamTVApp(App):
         """Si la TV se detuvo por su cuenta, reflejarlo en pantalla."""
         if not self.reproduciendo or self.tv_actual is None:
             return
-        estado = caster.estado_tv(self.tv_actual)
-        if estado == "STOPPED":
+        # Si hay un arranque o un stop en curso, esta pasada no aplica.
+        if not self._lock_stream.acquire(blocking=False):
+            return
+        try:
+            if not self.reproduciendo:
+                return
+            estado = caster.estado_tv(self.tv_actual)
+            if estado != "STOPPED":
+                return
             self.reproduciendo = False
+            self.url_actual = None
+            # La TV ya esta parada: no hace falta mandarle Stop al salir.
+            self._tv_tocada = False
             if self.servidor is not None:
                 self.servidor.detener()
                 self.servidor = None
-            self.call_from_thread(self.marcar_estado, "La TV detuvo la reproduccion.", "error")
-            self.log_desde_hilo("La TV paso a STOPPED (se corto el stream o alguien la paro).")
+        finally:
+            self._lock_stream.release()
+        self.call_from_thread(self.marcar_estado, "La TV detuvo la reproduccion.", "error")
+        self.log_desde_hilo("La TV paso a STOPPED (se corto el stream o alguien la paro).")
 
     # ---------- salida ----------
 

@@ -5,6 +5,7 @@ Correr con:  python3 -m unittest discover -s tests
 
 import os
 import sys
+import threading
 import unittest
 from unittest import mock
 
@@ -13,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from test_stream2tv import tv_falsa
 
 from stream2tv import caster, config, tui
+from textual.worker import WorkerCancelled
 
 
 class ServidorFalso:
@@ -20,9 +22,11 @@ class ServidorFalso:
 
     detenidos = []
 
-    def __init__(self, url, puerto, calidad="best", low_latency=False, log=print, backend="auto"):
+    def __init__(self, url, puerto, calidad="best", low_latency=False, log=print, backend="auto", **kw):
         self.url = url
         self.backend = backend
+        self.host = kw.get("host")
+        self.cliente_permitido = kw.get("cliente_permitido")
 
     def iniciar(self):
         pass
@@ -31,7 +35,10 @@ class ServidorFalso:
         ServidorFalso.detenidos.append(self.url)
 
 
-class TestTUI(unittest.IsolatedAsyncioTestCase):
+class BaseTUI(unittest.IsolatedAsyncioTestCase):
+    """Entorno comun sin tests propios: si tuviera tests, cada subclase los
+    heredaria y se correrian dos veces."""
+
     def setUp(self):
         self.tvs = [
             tv_falsa("[LG] webOS TV UP7710PSB", "192.168.0.50", udn="uuid:lg"),
@@ -69,9 +76,18 @@ class TestTUI(unittest.IsolatedAsyncioTestCase):
 
     async def _esperar(self, app, pilot):
         """Deja que terminen los workers en thread y se repinte la UI."""
-        await app.workers.wait_for_complete()
+        while True:
+            try:
+                await app.workers.wait_for_complete()
+                break
+            except WorkerCancelled:
+                # Un worker cancelado a proposito (Detener durante un arranque)
+                # corta la espera; se sigue esperando al resto.
+                continue
         await pilot.pause()
 
+
+class TestTUI(BaseTUI):
     async def test_arranca_y_lista_las_tvs(self):
         app = tui.StreamTVApp()
         async with app.run_test() as pilot:
@@ -103,6 +119,90 @@ class TestTUI(unittest.IsolatedAsyncioTestCase):
             await self._esperar(app, pilot)
             self.assertFalse(app.reproduciendo)
             self.assertEqual(ServidorFalso.detenidos, ["https://kick.com/lacobraaa"])
+
+    async def test_doble_reproducir_con_sitio_lento_abre_un_solo_servidor(self):
+        # Kick a veces tarda en responder la verificacion; si el usuario aprieta
+        # Reproducir de nuevo, los dos arranques no deben pelear por el puerto.
+        iniciados = []
+        liberar = threading.Event()
+
+        def verificacion_lenta(*a, **kw):
+            liberar.wait(5)
+            return True, ""
+
+        class ServidorContado(ServidorFalso):
+            def iniciar(self):
+                iniciados.append(self.url)
+                if len(iniciados) > 1 and not ServidorFalso.detenidos:
+                    raise tui.caster.PuertoOcupado("puerto ocupado")
+
+        with mock.patch.object(tui.caster, "canal_en_vivo", verificacion_lenta), \
+                mock.patch.object(tui.caster, "Servidor", ServidorContado):
+            app = tui.StreamTVApp()
+            async with app.run_test() as pilot:
+                await self._esperar(app, pilot)
+                await pilot.click("#canal")
+                await pilot.press(*"lacobraaa", "enter")
+                await pilot.pause()
+                await pilot.press("enter")
+                await pilot.pause()
+                liberar.set()
+                await self._esperar(app, pilot)
+                self.assertEqual(iniciados, ["https://kick.com/lacobraaa"])
+                self.assertTrue(app.reproduciendo)
+
+    async def test_detener_durante_la_verificacion_no_manda_nada_a_la_tv(self):
+        liberar = threading.Event()
+
+        def verificacion_lenta(*a, **kw):
+            liberar.wait(5)
+            return True, ""
+
+        with mock.patch.object(tui.caster, "canal_en_vivo", verificacion_lenta):
+            app = tui.StreamTVApp()
+            async with app.run_test() as pilot:
+                await self._esperar(app, pilot)
+                await pilot.click("#canal")
+                await pilot.press(*"lacobraaa", "enter")
+                await pilot.pause()
+                app.action_detener()
+                liberar.set()
+                await self._esperar(app, pilot)
+                self.assertEqual(self.reproducidos, [])
+                self.assertFalse(app.reproduciendo)
+                self.assertIsNone(app.servidor)
+
+    async def test_el_servidor_solo_atiende_a_la_tv(self):
+        creados = []
+
+        class ServidorAnotado(ServidorFalso):
+            def __init__(self, *a, **kw):
+                super().__init__(*a, **kw)
+                creados.append(self)
+
+        with mock.patch.object(tui.caster, "Servidor", ServidorAnotado):
+            app = tui.StreamTVApp()
+            async with app.run_test() as pilot:
+                await self._esperar(app, pilot)
+                await pilot.click("#canal")
+                await pilot.press(*"lacobraaa", "enter")
+                await self._esperar(app, pilot)
+        self.assertEqual(creados[0].host, "192.168.0.2")
+        self.assertEqual(creados[0].cliente_permitido, "192.168.0.50")
+
+    async def test_tv_parada_sola_limpia_el_estado(self):
+        app = tui.StreamTVApp()
+        async with app.run_test() as pilot:
+            await self._esperar(app, pilot)
+            await pilot.click("#canal")
+            await pilot.press(*"lacobraaa", "enter")
+            await self._esperar(app, pilot)
+            with mock.patch.object(tui.caster, "estado_tv", return_value="STOPPED"):
+                app.verificar_estado()
+                await self._esperar(app, pilot)
+            self.assertFalse(app.reproduciendo)
+            self.assertIsNone(app.url_actual)
+            self.assertIsNone(app.servidor)
 
     async def test_canal_offline_no_deja_el_stream_colgado(self):
         with mock.patch.object(tui.caster, "canal_en_vivo", return_value=(False, "offline")):
@@ -191,7 +291,7 @@ class TestTUI(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(app.url_actual, "https://kick.com/dos")
 
 
-class TestSalida(TestTUI):
+class TestSalida(BaseTUI):
     """Salir no debe dejar el stream corriendo ni la TV reproduciendo."""
 
     async def test_salir_mientras_reproduce_detiene_todo(self):

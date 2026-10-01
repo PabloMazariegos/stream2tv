@@ -34,7 +34,7 @@ cd stream-limitless
 ./install.sh
 ```
 
-Crea un venv en `~/.local/share/kick-cast-venv` e instala los comandos en `~/.local/bin`.
+Crea un venv en `~/.local/share/stream2tv-venv` e instala los comandos en `~/.local/bin`.
 
 Opcional pero recomendado: tener `node`, `deno` o `bun` en el sistema. yt-dlp los usa para desbloquear las calidades altas de YouTube (sin uno, YouTube queda en 360p).
 
@@ -51,7 +51,7 @@ $ twitch2tv
 ```
 
 ```
-┌─ stream2tv ───────────────────────────────── v0.2.0 ── 09:09 ─┐
+┌─ stream2tv ───────────────────────────────── v0.3.0 ── 09:09 ─┐
 │ TVs en la red          │ Que ver                              │
 │                        │ ┌──────────────────────────────────┐ │
 │ [LG] webOS TV UP7710 * │ │ Twitch                         ▾ │ │
@@ -135,8 +135,8 @@ En YouTube se pide **H.264 + AAC** explícitamente, aunque haya calidades mayore
 Para ver si un sitio está soportado:
 
 ```bash
-~/.local/share/kick-cast-venv/bin/streamlink --plugins
-~/.local/share/kick-cast-venv/bin/streamlink "https://sitio/lo-que-sea"   # lista las calidades
+~/.local/share/stream2tv-venv/bin/streamlink --plugins
+~/.local/share/stream2tv-venv/bin/streamlink "https://sitio/lo-que-sea"   # lista las calidades
 ```
 
 Si el sitio no tiene plugin, streamlink igual puede con un `.m3u8` o `.mpd` directo. Si tampoco, no va a funcionar: la app no extrae video de páginas arbitrarias, solo le pasa la URL a streamlink.
@@ -182,7 +182,7 @@ tests/           tests de selección, URLs y de la TUI
 ## Tests
 
 ```bash
-~/.local/share/kick-cast-venv/bin/python3 -m unittest discover -s tests
+~/.local/share/stream2tv-venv/bin/python3 -m unittest discover -s tests
 ```
 
 95 tests. Cubren resolución de URLs, toda la lógica de selección de TV (filtros, ambigüedad, predeterminada, menú), la TUI corriendo de verdad en modo headless (reproducir, detener, cambiar de canal, favoritos, canal offline, puerto ocupado, quedarse sin TVs) y la limpieza al salir, con procesos reales: que se mate el árbol completo, que se libere el puerto y que salir por cualquier vía no deje nada corriendo.
@@ -218,7 +218,7 @@ O usá otro puerto con `--port`.
 **YouTube en 360p.** Si te sale en baja resolución, falta un runtime de JavaScript (`node`, `deno` o `bun`): yt-dlp lo necesita para resolver los formatos altos, y sin él YouTube devuelve `403` en todos salvo el progresivo de 360p. Comprobalo con:
 
 ```bash
-~/.local/share/kick-cast-venv/bin/yt-dlp -F "https://www.youtube.com/watch?v=..."
+~/.local/share/stream2tv-venv/bin/yt-dlp -F "https://www.youtube.com/watch?v=..."
 ```
 
 Si solo lista formatos chicos, es eso.

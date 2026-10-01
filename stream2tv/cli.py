@@ -8,6 +8,11 @@ from . import __version__, caster, config, discovery
 from .plataformas import PLATAFORMAS, etiqueta, resolver_url  # noqa: F401  (reexport)
 
 PUERTO_DEFECTO = 8090
+# Cada cuanto se le pregunta a la TV si sigue reproduciendo.
+INTERVALO_MONITOR = 10
+# Lecturas STOPPED seguidas antes de dar el stream por terminado: una sola
+# puede ser un parpadeo mientras la TV re-bufferea.
+STOPPED_PARA_CORTAR = 2
 
 
 def buscar_tvs(mostrar=True):
@@ -41,10 +46,11 @@ def obtener_tv(args):
 
 
 def transmitir(tv, url, args, titulo=None):
-    """Levanta el servidor, le manda el stream a la TV y bloquea hasta Ctrl+C.
+    """Levanta el servidor, le manda el stream a la TV y bloquea hasta que termine.
 
-    Devuelve True si el usuario corto con Ctrl+C (para volver al menu en modo
-    interactivo), False si no se pudo arrancar.
+    Termina con Ctrl+C o cuando la TV deja de reproducir (el stream se corto o
+    alguien la paro). Devuelve True si llego a transmitir, False si no se pudo
+    arrancar.
     """
     if not args.no_check:
         print("Verificando que el canal este en vivo...", flush=True)
@@ -53,8 +59,15 @@ def transmitir(tv, url, args, titulo=None):
             print(f"No hay stream disponible: {motivo}")
             return False
 
+    mi_ip = discovery.ip_local_hacia(tv.host)
     servidor = caster.Servidor(
-        url, args.port, args.quality, args.low_latency, backend=args.backend
+        url,
+        args.port,
+        args.quality,
+        args.low_latency,
+        backend=args.backend,
+        host=mi_ip,
+        cliente_permitido=tv.host,
     )
     try:
         servidor.iniciar()
@@ -62,7 +75,6 @@ def transmitir(tv, url, args, titulo=None):
         print(e)
         return False
 
-    mi_ip = discovery.ip_local_hacia(tv.host)
     stream_url = f"http://{mi_ip}:{args.port}{caster.RUTA_STREAM}"
 
     print(f"Enviando {url} a la TV...")
@@ -78,14 +90,31 @@ def transmitir(tv, url, args, titulo=None):
 
     print("Reproduciendo. Ctrl+C para detener.")
     try:
-        while True:
-            time.sleep(1)
+        esperar_fin(tv)
     except KeyboardInterrupt:
         print("\nDeteniendo...")
     finally:
         caster.detener_tv(tv)
         servidor.detener()
     return True
+
+
+def esperar_fin(tv):
+    """Bloquea mientras la TV siga reproduciendo."""
+    stopped_seguidos = 0
+    segundos = 0
+    while True:
+        time.sleep(1)
+        segundos += 1
+        if segundos % INTERVALO_MONITOR:
+            continue
+        if caster.estado_tv(tv) == "STOPPED":
+            stopped_seguidos += 1
+            if stopped_seguidos >= STOPPED_PARA_CORTAR:
+                print("La TV detuvo la reproduccion (se corto el stream o alguien la paro).")
+                return
+        else:
+            stopped_seguidos = 0
 
 
 def pedir_opcion(items, etiqueta, indice_defecto=None):
@@ -250,3 +279,13 @@ def main(plataforma_default=None, argv=None, nombre_programa=None):
     url = resolver_url(args.canal, plataforma_default)
     ok = transmitir(tv, url, args, titulo=url)
     return 0 if ok else 1
+
+
+def main_kick():
+    """Entry point de kick2tv: un nombre suelto se toma como canal de Kick."""
+    return main(plataforma_default="kick", nombre_programa="kick2tv")
+
+
+def main_twitch():
+    """Entry point de twitch2tv: un nombre suelto se toma como canal de Twitch."""
+    return main(plataforma_default="twitch", nombre_programa="twitch2tv")
