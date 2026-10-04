@@ -94,7 +94,7 @@ twitch2tv
 Se abre una app de terminal que queda viva:
 
 ```
-┌─ stream2tv ───────────────────────────────── v0.5.0 ── 09:09 ─┐
+┌─ stream2tv ───────────────────────────────── v0.6.0 ── 09:09 ─┐
 │ TVs en la red          │ Que ver                              │
 │                        │ ┌──────────────────────────────────┐ │
 │ [LG] webOS TV UP7710 * │ │ Twitch                         ▾ │ │
@@ -297,6 +297,13 @@ Para confirmar que era eso:
 
 Si solo lista formatos chicos, era eso. El techo con H.264 es 1080p: los formatos de
 1440p y 4K son VP9/AV1 y la TV no los decodifica.
+
+### Se cortó un momento y volvió solo
+
+Es la reconexión automática: si Kick, Twitch o YouTube dejan de responder a mitad
+del stream, stream2tv relanza la descarga sin cortar la conexión con la TV (hasta 5
+intentos, esperando 1, 2 y 4 segundos). En el panel se ve "Reconectando…" en ámbar.
+Si el canal terminó de verdad, se rinde y lo avisa en el log.
 
 ### El video va cortado o se traba
 

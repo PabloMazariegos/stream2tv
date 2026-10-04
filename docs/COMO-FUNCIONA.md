@@ -171,7 +171,11 @@ proceso.
 
 Si en cambio es **el backend el que termina solo** (Kick tiró un timeout, un `403`, se
 cortó el stream), se loguea su código de salida y las últimas líneas de su `stderr`,
-que se van juntando en un hilo aparte. Antes ese `stderr` iba a `/dev/null` y un corte
+que se van juntando en un hilo aparte, y **se relanza sobre la misma conexión**: la TV
+nunca cerró su GET, así que el nuevo MPEG-TS le llega como continuación (a lo sumo
+nota un salto). Son hasta 5 intentos (`ESPERAS_REINTENTO`); una corrida de más de
+60 s reinicia la cuenta. Un Detener, otro canal u otra conexión abren un "turno" nuevo
+y el handler viejo deja de reintentar. Antes ese `stderr` iba a `/dev/null` y un corte
 a mitad de stream no dejaba ninguna pista.
 
 ### Por qué MPEG-TS y no otra cosa

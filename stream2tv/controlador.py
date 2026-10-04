@@ -22,6 +22,8 @@ BUSCANDO = "buscando"
 VERIFICANDO = "verificando"
 ENVIANDO = "enviando"
 REPRODUCIENDO = "reproduciendo"
+# El backend se cayo y se esta relanzando sin cortar la conexion con la TV.
+RECONECTANDO = "reconectando"
 DETENIENDO = "deteniendo"
 ERROR = "error"
 
@@ -313,6 +315,7 @@ class Controlador:
             host=mi_ip,
             cliente_permitido=tv.host,
             al_aviso=self._aviso_backend,
+            al_estado=self._estado_backend,
         )
         try:
             servidor.iniciar()
@@ -355,6 +358,18 @@ class Controlador:
             self._emitir("estado", self.estado())
         elif _AVISO_PREROLL in linea:
             self.log("Twitch esta pasando un anuncio de entrada: el video arranca cuando termine.", "aviso")
+
+    def _estado_backend(self, tipo, intento=None, total=None, motivo=None):
+        """El servidor avisa que el backend se cayo, volvio o se rindio."""
+        if not self.reproduciendo:
+            return
+        if tipo == "reconectando":
+            self._fase(RECONECTANDO, f"Reconectando... intento {intento} de {total}")
+        elif tipo == "recuperado":
+            tv = self._tv_en_uso.nombre if self._tv_en_uso else "la TV"
+            self._fase(REPRODUCIENDO, f"Reproduciendo {self.canal} en {tv}")
+        elif tipo == "terminado":
+            self._fase(ERROR, "Se corto el stream y no se pudo recuperar")
 
     def _soltar_servidor(self):
         """Detiene el servidor una sola vez aunque lo pidan dos caminos a la vez."""
@@ -413,6 +428,10 @@ class Controlador:
     def verificar_estado(self):
         """Si la TV se detuvo sola, lo refleja. Devuelve True si detecto el corte."""
         if not self.reproduciendo or self._tv_en_uso is None:
+            return False
+        # Mientras se reconecta, la TV puede mostrarse parada un momento: no
+        # hay que soltar el servidor justo cuando el stream esta por volver.
+        if self.fase == RECONECTANDO:
             return False
         # Si hay un arranque o un stop en curso, esta pasada no aplica.
         if not self._lock.acquire(blocking=False):

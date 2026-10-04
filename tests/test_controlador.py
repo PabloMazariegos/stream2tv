@@ -207,6 +207,29 @@ class TestTVs(BaseControlador):
         self.assertIn("No se encontro", self.ctrl.mensaje)
 
 
+class TestReconexion(BaseControlador):
+    def test_los_avisos_del_servidor_cambian_la_fase(self):
+        self.ctrl.reproducir("xqc", "twitch")
+        self.ctrl._estado_backend("reconectando", intento=2, total=5, motivo="timeout")
+        self.assertEqual(self.ctrl.fase, "reconectando")
+        self.assertIn("intento 2 de 5", self.ctrl.mensaje)
+        self.ctrl._estado_backend("recuperado")
+        self.assertEqual(self.ctrl.fase, "reproduciendo")
+        self.ctrl._estado_backend("terminado", motivo="fin")
+        self.assertEqual(self.ctrl.fase, "error")
+
+    def test_el_monitor_no_suelta_el_servidor_mientras_reconecta(self):
+        self.ctrl.reproducir("xqc", "twitch")
+        self.ctrl._estado_backend("reconectando", intento=1, total=5, motivo="timeout")
+        with mock.patch.object(caster, "estado_tv", return_value="STOPPED"):
+            self.assertFalse(self.ctrl.verificar_estado())
+        self.assertIsNotNone(self.ctrl.servidor)
+
+    def test_avisos_viejos_sin_stream_se_ignoran(self):
+        self.ctrl._estado_backend("reconectando", intento=1, total=5, motivo="x")
+        self.assertNotEqual(self.ctrl.fase, "reconectando")
+
+
 class TestMonitorYSalida(BaseControlador):
     def test_tv_parada_sola_limpia_el_estado(self):
         self.ctrl.reproducir("xqc", "twitch")

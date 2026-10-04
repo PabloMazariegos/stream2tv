@@ -31,6 +31,7 @@ from .plataformas import etiqueta, opciones_select
 # Como se ve cada fase del Controlador en la barra de estado.
 CLASES_FASE = {
     "reproduciendo": "reproduciendo",
+    "reconectando": "trabajando",
     "verificando": "trabajando",
     "enviando": "trabajando",
     "buscando": "trabajando",

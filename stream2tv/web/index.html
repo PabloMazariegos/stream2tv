@@ -22,6 +22,7 @@
   --borde: #2a2a30;
   --campo: #18181b;
   --vivo: #ff5c61;
+  --ambar: #e8b45a;
   --ok: #3fcf7f;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
@@ -56,8 +57,11 @@ svg { display: block; flex: 0 0 auto; }
 .meta.error { color: var(--vivo); }
 .punto { width: 8px; height: 8px; border-radius: 50%; background: var(--vivo); flex: 0 0 auto; }
 .espera { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); animation: latir 1.1s ease-in-out infinite; }
+.meta.reconectando { color: var(--ambar); }
+.meta.reconectando .espera { background: var(--ambar); }
 @keyframes latir { 50% { opacity: .25; } }
 .sub { font-size: 12px; color: var(--muted); }
+.sub.tenue { color: var(--tenue); }
 .botones { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 10px; }
 .botones.solo { grid-template-columns: 1fr; }
 .sec-btn { height: 44px; border-radius: 10px; border: 1px solid var(--borde); font-weight: 600; }
@@ -175,6 +179,8 @@ details.log[open] summary::after { content: " ▴"; }
   "use strict";
   var NOMBRE = { kick: "Kick", twitch: "Twitch", youtube: "YouTube" };
   var ARRANCANDO = { verificando: 1, enviando: 1 };
+  // Fases en las que el canal sigue "en la TV" aunque no este reproduciendo justo ahora.
+  var EN_TV = { reproduciendo: 1, reconectando: 1, verificando: 1, enviando: 1 };
   var s = null;            // ultimo estado del Controlador
   var log = [];
   var conectado = false;
@@ -287,6 +293,12 @@ details.log[open] summary::after { content: " ▴"; }
       var guardar = !esFavorito(s.canal, s.plataforma);
       botones = '<div class="botones' + (guardar ? "" : " solo") + '"><button class="sec-btn" type="button" data-accion="detener">Detener</button>' +
         (guardar ? '<button class="sec-btn icono" type="button" data-accion="guardar" aria-label="Guardar en Qué ver">☆</button>' : "") + '</div>';
+    } else if (s.fase === "reconectando") {
+      // El mensaje viene como "Reconectando... intento 2 de 5".
+      var intento = /intento (\d+ de \d+)/.exec(s.mensaje || "");
+      meta = '<div class="meta reconectando"><i class="espera"></i>Reconectando…' + (intento ? " intento " + intento[1] : "") + '</div>';
+      sub = '<div class="sub tenue">' + esc(NOMBRE[s.plataforma] || "El sitio") + ' dejó de responder. La TV sigue conectada y vuelve sola.</div>';
+      botones = '<div class="botones solo"><button class="sec-btn" type="button" data-accion="detener">Detener</button></div>';
     } else if (s.fase === "error") {
       meta = '<div class="meta error">' + esc(s.mensaje) + '</div>';
       sub = '<div class="sub">Probá con otro canal o volvé más tarde.</div>';
@@ -335,7 +347,7 @@ details.log[open] summary::after { content: " ▴"; }
     if (!s.favoritos.length) editando = false;
     poner("ahora", tarjetaAhora());
 
-    var enTV = s.fase === "reproduciendo" || ARRANCANDO[s.fase];
+    var enTV = EN_TV[s.fase];
     poner("favs", favoritosOrdenados().map(function (p) {
       var f = p.f, e = p.e;
       var actual = enTV && s.canal && mismoCanal(f.canal, s.canal) && f.plataforma === s.plataforma;

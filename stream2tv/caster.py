@@ -243,6 +243,12 @@ def canal_en_vivo(url, calidad="best", timeout=40, backend="auto"):
 
 
 LINEAS_STDERR = 15
+# Si el backend se cae a mitad del stream (un timeout, un 443 de Kick), se
+# relanza sobre la misma conexion con la TV. Espera antes de cada intento:
+ESPERAS_REINTENTO = (1, 2, 4, 4, 4)
+# Una corrida que duro al menos esto se considera sana: la cuenta de intentos
+# vuelve a cero, asi un corte cada media hora no agota los reintentos.
+CORRIDA_SANA = 60
 
 
 def _juntar_stderr(proc, destino, avisar=None):
@@ -287,9 +293,12 @@ class Servidor:
         host="0.0.0.0",
         cliente_permitido=None,
         al_aviso=None,
+        al_estado=None,
     ):
         self.url = url
         self.al_aviso = al_aviso
+        # al_estado(tipo, **datos): "reconectando", "recuperado" o "terminado".
+        self.al_estado = al_estado
         self.puerto = puerto
         self.host = host
         self.cliente_permitido = cliente_permitido
@@ -302,6 +311,10 @@ class Servidor:
         self._procesos = []
         # Procesos que cortamos a proposito: su fin no es un error a reportar.
         self._cortados = set()
+        # Cada corte (Detener, otra conexion) abre un turno nuevo: un handler
+        # de un turno viejo no reintenta aunque su backend se haya caido.
+        self._turno = 0
+        self._parar = threading.Event()
         self._lock = threading.Lock()
         self._httpd = None
         self._hilo = None
@@ -351,54 +364,56 @@ class Servidor:
                     return
 
                 servidor._cortar_procesos()
+                with servidor._lock:
+                    mi_turno = servidor._turno
                 backend = os.path.basename(comando[0])
                 servidor.log(f"TV conectada, bajando {servidor.url} con {backend}")
-                proc = subprocess.Popen(
-                    comando,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    bufsize=0,
-                    # Grupo de procesos propio, para poder matarlo entero despues.
-                    start_new_session=True,
-                )
-                errores = collections.deque(maxlen=LINEAS_STDERR)
-                threading.Thread(
-                    target=_juntar_stderr, args=(proc, errores, servidor.al_aviso), daemon=True
-                ).start()
-                with servidor._lock:
-                    servidor._procesos.append(proc)
-
                 self._cabeceras(con_largo=False)
+                intentos = 0
                 try:
                     while True:
-                        # 188 = tamano de paquete MPEG-TS; se manda en bloques enteros.
-                        chunk = proc.stdout.read(188 * 100)
-                        if not chunk:
-                            break
-                        self.wfile.write(chunk)
-                    if proc not in servidor._cortados:
-                        # El backend termino solo: sin su stderr no habia forma
-                        # de saber si fue un timeout, un 403 o el fin del stream.
+                        proc, errores = servidor._lanzar(comando)
+                        inicio = time.monotonic()
+                        recibio = fin_normal = False
                         try:
-                            codigo = proc.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            codigo = None
+                            while True:
+                                # 188 = tamano de paquete MPEG-TS; se manda en bloques enteros.
+                                chunk = proc.stdout.read(188 * 100)
+                                if not chunk:
+                                    fin_normal = True
+                                    break
+                                if not recibio:
+                                    recibio = True
+                                    if intentos:
+                                        servidor.log(f"{backend} se recupero: el stream sigue.")
+                                        servidor._avisar("recuperado")
+                                self.wfile.write(chunk)
+                        finally:
+                            cortado = proc in servidor._cortados
+                            codigo = servidor._soltar(proc, esperar=fin_normal and not cortado)
+                        if cortado or not servidor._vigente(mi_turno):
+                            return  # lo cortamos nosotros: Detener, otro canal u otra conexion
+                        # El backend termino solo: sin su stderr no habia forma de
+                        # saber si fue un timeout, un 403 o el fin del stream.
                         motivo = " | ".join(list(errores)[-3:]) or "sin detalle"
-                        servidor.log(f"{backend} termino (codigo {codigo}): {motivo}")
+                        if time.monotonic() - inicio >= CORRIDA_SANA:
+                            intentos = 0
+                        total = len(ESPERAS_REINTENTO)
+                        if intentos >= total:
+                            servidor.log(f"{backend} se corto y no se pudo recuperar (codigo {codigo}): {motivo}")
+                            servidor._avisar("terminado", motivo=motivo)
+                            return
+                        espera = ESPERAS_REINTENTO[intentos]
+                        intentos += 1
+                        servidor.log(
+                            f"{backend} se corto (codigo {codigo}): {motivo}. "
+                            f"Reconectando, intento {intentos} de {total}."
+                        )
+                        servidor._avisar("reconectando", intento=intentos, total=total, motivo=motivo)
+                        if servidor._parar.wait(espera) or not servidor._vigente(mi_turno):
+                            return
                 except (BrokenPipeError, ConnectionResetError):
                     servidor.log("La TV cerro la conexion.")
-                finally:
-                    matar_arbol(proc)
-                    servidor._cortados.discard(proc)
-                    if proc.stderr is not None:
-                        proc.stderr.close()
-                    # Se cierra aca y no en matar_arbol: este es el unico hilo
-                    # que lee el pipe, y cerrarlo mientras lee daria ValueError.
-                    if proc.stdout is not None:
-                        proc.stdout.close()
-                    with servidor._lock:
-                        if proc in servidor._procesos:
-                            servidor._procesos.remove(proc)
 
             def log_message(self, *args):
                 pass
@@ -421,14 +436,63 @@ class Servidor:
         with _LOCK_VIVOS:
             _SERVIDORES_VIVOS.add(self)
 
+    def _lanzar(self, comando):
+        proc = subprocess.Popen(
+            comando,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=0,
+            # Grupo de procesos propio, para poder matarlo entero despues.
+            start_new_session=True,
+        )
+        errores = collections.deque(maxlen=LINEAS_STDERR)
+        threading.Thread(target=_juntar_stderr, args=(proc, errores, self.al_aviso), daemon=True).start()
+        with self._lock:
+            self._procesos.append(proc)
+        return proc, errores
+
+    def _soltar(self, proc, esperar=False):
+        """Termina y limpia un backend. Devuelve su codigo de salida si se conoce."""
+        codigo = proc.poll()
+        if codigo is None and esperar:
+            try:
+                codigo = proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+        matar_arbol(proc)
+        self._cortados.discard(proc)
+        if proc.stderr is not None:
+            proc.stderr.close()
+        # Se cierra aca y no en matar_arbol: este es el unico hilo que lee el
+        # pipe, y cerrarlo mientras lee daria ValueError.
+        if proc.stdout is not None:
+            proc.stdout.close()
+        with self._lock:
+            if proc in self._procesos:
+                self._procesos.remove(proc)
+        return codigo
+
+    def _vigente(self, turno):
+        return turno == self._turno and not self._parar.is_set()
+
+    def _avisar(self, tipo, **datos):
+        if self.al_estado is None:
+            return
+        try:
+            self.al_estado(tipo, **datos)
+        except Exception:
+            pass
+
     def _cortar_procesos(self):
         with self._lock:
+            self._turno += 1
             procesos, self._procesos = list(self._procesos), []
             self._cortados.update(procesos)
         for proc in procesos:
             matar_arbol(proc)
 
     def detener(self):
+        self._parar.set()
         self._cortar_procesos()
         if self._httpd is not None:
             self._httpd.shutdown()
