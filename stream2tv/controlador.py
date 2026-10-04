@@ -37,8 +37,10 @@ _AVISO_PREROLL = "Waiting for pre-roll ads to finish"
 
 
 class Controlador:
-    def __init__(self, puerto=8090, calidad="best", low_latency=False, backend="auto"):
+    def __init__(self, puerto=8090, calidad="best", low_latency=False, backend="auto", plataforma_inicial=None):
         self.puerto = puerto
+        # Con que plataforma arranca el campo "Otro canal" (kick2tv, twitch2tv).
+        self.plataforma_inicial = plataforma_inicial
         self.calidad = calidad
         self.low_latency = low_latency
         self.backend = backend
@@ -70,8 +72,7 @@ class Controlador:
         self._lock_estado = threading.Lock()
         # Cada reproducir() o detener() lo incrementa; un arranque que al
         # terminar de verificar ve otro numero sabe que lo reemplazaron y se
-        # descarta sin tocar la TV. Reemplaza a la cancelacion de workers de
-        # Textual, que solo existe dentro de la TUI.
+        # descarta sin tocar la TV, venga el pedido de donde venga (panel, CLI).
         self._pedido = 0
         self._arranques = 0
 
@@ -130,6 +131,7 @@ class Controlador:
             ],
             "favoritos": config.favoritos(),
             "anuncios": self.anuncios,
+            "plataforma_inicial": self.plataforma_inicial,
             "en_vivo": self.en_vivo,
             "arrancando": self._arranques > 0,
         }
@@ -166,8 +168,12 @@ class Controlador:
             self._fase(LIBRE, f"Listo. TV: {self.tv_actual.visible}")
         return tvs
 
-    def elegir_tv(self, tv_o_udn):
-        """Elige la TV para el proximo stream. No mueve el stream en curso."""
+    def elegir_tv(self, tv_o_udn, recordar=False):
+        """Elige la TV para el proximo stream. No mueve el stream en curso.
+
+        Con recordar=True queda ademas como TV por defecto para la proxima vez
+        que se abra stream2tv (es lo que hace el panel al tocar una TV).
+        """
         udn = getattr(tv_o_udn, "udn", tv_o_udn)
         tv = next((t for t in self.tvs if t.udn == udn), None)
         if tv is None and hasattr(tv_o_udn, "udn"):
@@ -175,6 +181,9 @@ class Controlador:
         if tv is None:
             return False
         self.tv_actual = tv
+        if recordar and tv.udn != self.udn_defecto:
+            config.set_tv_por_defecto(tv.udn, tv.nombre)
+            self.udn_defecto = tv.udn
         if self.fase in (LIBRE, ERROR):
             self._fase(LIBRE, f"Listo. TV: {tv.visible}")
         else:

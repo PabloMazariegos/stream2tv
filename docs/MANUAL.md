@@ -83,78 +83,45 @@ stream2tv --list-tvs
 
 ## 4. Uso
 
-### La forma normal: la TUI
-
-Corré el comando sin argumentos:
+### La forma normal: el panel
 
 ```bash
-twitch2tv
+stream2tv
 ```
 
-Se abre una app de terminal que queda viva:
+Se abre el panel en el navegador de la compu, ya autorizado, y la terminal muestra la
+dirección y un código QR para el celular. Dejá esa terminal abierta mientras lo usás:
+`Ctrl+C` (o cerrarla) apaga todo y detiene la TV.
 
-```
-┌─ stream2tv ───────────────────────────────── v0.7.0 ── 09:09 ─┐
-│ TVs en la red          │ Que ver                              │
-│                        │ ┌──────────────────────────────────┐ │
-│ [LG] webOS TV UP7710 * │ │ Twitch                         ▾ │ │
-│   192.168.0.50         │ └──────────────────────────────────┘ │
-│ Chromecast sala        │ ┌──────────────────────────────────┐ │
-│   192.168.0.77         │ │ xqc                              │ │
-│                        │ └──────────────────────────────────┘ │
-├────────────────────────┴──────────────────────────────────────┤
-│ ● Reproduciendo xqc en [LG] webOS TV UP7710PSB                │
-├───────────────────────────────────────────────────────────────┤
-│ 09:09:16  2 TV(s) encontrada(s).                              │
-├───────────────────────────────────────────────────────────────┤
-│ ^d TV por defecto  ^q Salir  ^s Detener  ^r Refrescar  ^f Fav │
-└───────────────────────────────────────────────────────────────┘
-```
+En el panel:
 
-Las TVs de la red están a la izquierda (te movés con las flechas). A la derecha
-elegís plataforma y escribís el canal. `Enter` lo manda a la TV.
+- **Arriba**, lo que se está viendo y en qué TV, con el botón **Detener**.
+- **Qué ver**: tus favoritos. Los que están transmitiendo aparecen arriba, con el
+  juego, el título y los espectadores; los que no, abajo en gris. Se consulta a
+  Twitch, Kick y YouTube cada 90 segundos. **Editar** sirve para quitar favoritos, y
+  la ☆ al lado de Detener guarda el canal que estás mirando.
+- **Otro canal o link**: escribís un canal y elegís la plataforma con el logo de la
+  derecha, o pegás un link completo de cualquier sitio.
+- **TV**: las TVs de la red. Tocás una para elegirla (queda como la de siempre para la
+  próxima vez) y el lápiz para ponerle un nombre.
+- **Actividad**: todo lo que pasó (también se ve en la terminal).
 
-| Atajo | Qué hace |
-|---|---|
-| `Enter` | Reproducir el canal escrito |
-| `Ctrl+S` | Detener |
-| `Ctrl+R` | Volver a buscar TVs |
-| `Ctrl+D` | Guardar la TV seleccionada como predeterminada |
-| `Ctrl+E` | Ponerle un nombre propio a la TV seleccionada ("Sala") |
-| `Ctrl+F` | Marcar/desmarcar el canal como favorito |
-| `Ctrl+W` | Mostrar el QR del panel web para el celular |
-| `Ctrl+Q` | Salir (detiene el stream antes) |
+Podés cambiar de canal sin detener: el anterior se corta solo. Si Kick, Twitch o
+YouTube dejan de responder un momento, el stream se reconecta solo ("Reconectando…").
 
-Los atajos usan `Ctrl` porque las letras sueltas se escribirían en el campo de canal.
+En la compu el panel se ve en dos columnas; en el celular, en una. Es la misma página.
 
-Podés cambiar de canal sin detener a mano: escribís otro y `Enter`, y el anterior se
-corta solo. Cada 15 segundos se chequea la TV, así que si se detuvo sola lo ves en el
-panel de abajo.
+### En el celular
 
-### Desde el celular: el panel web
-
-Mientras la TUI está abierta, también podés manejar todo desde el celular: elegir la
-TV, cambiar de canal, usar los favoritos y detener. Lo que hagas en el celular se ve
-al instante en la TUI, y al revés.
-
-1. Al arrancar, el log de la TUI muestra la dirección del panel, por ejemplo
-   `http://192.168.1.18:8091`.
-2. Apretá `Ctrl+W`: aparece un código QR. Escanealo con la cámara del celular.
-3. Listo. El celular queda autorizado por un año; después abrís la dirección y entra
-   directo. Desde el menú del navegador podés agregarlo a la pantalla de inicio.
-
-En "Qué ver" los favoritos que están transmitiendo aparecen arriba, con el juego, el
-título del stream y los espectadores; los que no, abajo en gris. Se consulta a Twitch,
-Kick y YouTube cada 90 segundos mientras stream2tv está abierto (la TUI también marca
-con ● a los que están en vivo).
+1. Escaneá con la cámara el QR que muestra la terminal al arrancar, o el del botón
+   **Usar en el celular** del panel en la compu.
+2. Listo: el celular queda autorizado por un año. Desde el menú del navegador podés
+   agregarlo a la pantalla de inicio y abre como una app.
 
 El QR lleva una clave: sin ella, alguien conectado a tu wifi no puede usar el panel.
-Si querés desautorizar a todos los celulares, apretá `n` en la pantalla del QR y
-volvé a escanear con los que sí querés.
-
-El panel solo funciona dentro de tu red de casa. Si el celular no llega a la
-dirección, revisá el firewall de la laptop (ver *Problemas frecuentes*). Para no
-abrirlo, arrancá con `--no-web`.
+Para desautorizar a todos los celulares, corré `stream2tv --reset-key` y volvé a
+escanear el QR con los que sí querés. El panel solo funciona dentro de tu red de casa. Si el celular no llega a la
+dirección, revisá el firewall de la laptop (ver *Problemas frecuentes*).
 
 ### Modo directo
 
@@ -180,16 +147,6 @@ stream2tv yt:algun_canal        # atajo a youtube.com/@canal/live
 El selector de plataforma **solo aplica cuando escribís un nombre pelado**. Si pegás
 una URL completa se respeta tal cual.
 
-### Modo pregunta-respuesta
-
-Si no querés la TUI:
-
-```bash
-twitch2tv --wizard
-```
-
----
-
 ## 5. Elegir la TV
 
 ```bash
@@ -211,8 +168,8 @@ vez de adivinar.
 ### Nombres propios para las TVs
 
 En vez de `65" Crystal UHD` o `Kodi (Mi Box)` podés llamarlas "Sala" y "Cuarto":
-con `Ctrl+E` en la TUI, o tocando el lápiz al lado de la TV en el panel (se abre una
-hoja con sugerencias como Sala, Cuarto o Comedor). El nombre se
+tocando el lápiz al lado de la TV en el panel (se abre una hoja con sugerencias como
+Sala, Cuarto o Comedor). El nombre se
 guarda atado al identificador de la TV (no a su IP), así sobrevive a que el router le
 cambie la dirección. Vacío vuelve al nombre de fábrica. También sirve para elegir:
 `stream2tv --tv sala`.
@@ -223,7 +180,8 @@ cambie la dirección. Vacío vuelve al nombre de fábrica. También sirve para e
 |---|---|
 | `--port N` | Puerto HTTP local del video (default `8090`) |
 | `--web-port N` | Puerto del panel web para el celular (default `8091`) |
-| `--no-web` | No abrir el panel web junto con la TUI |
+| `--no-browser` | No abrir el panel en el navegador al arrancar |
+| `--reset-key` | Renovar la clave del panel (desautoriza a todos los celulares) |
 | `--quality Q` | `best`, `1080p`, `720p`, `worst`… (default `best`) |
 | `--low-latency` | Baja latencia en Twitch. Con poca RAM en la TV puede bufferear |
 | `--no-check` | No verificar si el canal está en vivo antes de castear |
@@ -232,8 +190,6 @@ cambie la dirección. Vacío vuelve al nombre de fábrica. También sirve para e
 | `--tv-ip IP` | Conectar directo a una IP |
 | `--list-tvs` | Listar TVs y salir |
 | `--set-default` / `--forget-default` | Manejar la TV predeterminada |
-| `-i` | Forzar modo interactivo aunque pases un canal |
-| `--wizard` | Modo pregunta-respuesta, sin TUI |
 | `--version` | Ver la versión |
 
 ---
@@ -269,7 +225,8 @@ En orden de probabilidad:
   ```bash
   sudo ufw allow from 192.168.1.0/24 to any port 8091 proto tcp
   ```
-- Si dice *Este celular no tiene acceso*, volvé a escanear el QR (`Ctrl+W`). Pasa si
+- Si dice *Este celular no tiene acceso*, volvé a escanear el QR (el de la terminal o
+  el del botón **Usar en el celular**). Pasa si
   se renovó la clave o si borraste los datos del navegador.
 
 ### `Address already in use`

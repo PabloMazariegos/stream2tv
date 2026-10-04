@@ -12,10 +12,9 @@ from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from stream2tv import cli, config, discovery, tui
+from stream2tv import cli, config, discovery
 from stream2tv.controlador import Controlador
 from test_stream2tv import tv_falsa
-from test_tui import BaseTUI
 from test_web import BaseWeb
 
 
@@ -97,22 +96,6 @@ class TestPanel(BaseWeb):
         self.assertEqual(r.status, 400)
         r, _ = self.pedir("POST", "/api/tv/nombre", {"udn": "uuid:kodi", "alias": "x"}, propio=False)
         self.assertEqual(r.status, 403)
-
-
-class TestTUI(BaseTUI):
-    async def test_ctrl_e_renombra_la_tv_seleccionada(self):
-        app = tui.StreamTVApp()
-        async with app.run_test() as pilot:
-            await self._esperar(app, pilot)
-            await pilot.press("ctrl+e")
-            await pilot.pause()
-            self.assertIsInstance(app.screen, tui.PantallaRenombrar)
-            await pilot.press(*"Sala", "enter")
-            await pilot.pause()
-            self.assertNotIsInstance(app.screen, tui.PantallaRenombrar)
-            self.assertEqual(app.ctrl.tv_actual.visible, "Sala")
-            primera = app.query_one("#lista-tvs").children[0]
-            self.assertIn("Sala", str(primera.query_one(tui.Label).render()))
 
 
 class TestCLI(ConConfigAislada):

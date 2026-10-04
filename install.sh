@@ -29,7 +29,7 @@ echo "yt-dlp $("$VENV/bin/yt-dlp" --version)"
 
 echo
 echo "Listo. Proba:"
-echo "  stream2tv              # TUI"
+echo "  stream2tv              # abre el panel en el navegador"
 echo "  stream2tv --list-tvs   # ver las TVs de la red"
 if [ -d "$VENV_VIEJO" ] && [ "$VENV_VIEJO" != "$VENV" ]; then
   echo

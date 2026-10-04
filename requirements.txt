@@ -1,6 +1,5 @@
 # Mismas dependencias que pyproject.toml, para quien instale a mano con pip -r.
 streamlink>=8.6.1
 yt-dlp>=2026.8.19
-textual>=8.2
 upnpclient>=2.0.3
 segno>=1.6

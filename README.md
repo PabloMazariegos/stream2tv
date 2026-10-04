@@ -42,64 +42,32 @@ Instrucciones paso a paso, compatibilidad de TVs y solución de problemas: **[`d
 
 ## Uso
 
-### TUI (por defecto)
+### El panel (por defecto)
 
-Corré el comando sin argumentos y se abre una app que queda viva en la terminal:
-
-```
-$ twitch2tv
-```
+Corré el comando sin argumentos:
 
 ```
-┌─ stream2tv ───────────────────────────────── v0.7.0 ── 09:09 ─┐
-│ TVs en la red          │ Que ver                              │
-│                        │ ┌──────────────────────────────────┐ │
-│ [LG] webOS TV UP7710 * │ │ Twitch                         ▾ │ │
-│   192.168.0.50         │ └──────────────────────────────────┘ │
-│ Chromecast sala        │ ┌──────────────────────────────────┐ │
-│   192.168.0.77         │ │ xqc                              │ │
-│                        │ └──────────────────────────────────┘ │
-│                        │ Favoritos                            │
-│                        │ ┌──────────────────────────────────┐ │
-│                        │ │ xqc  (Twitch)                    │ │
-│                        │ └──────────────────────────────────┘ │
-├────────────────────────┴──────────────────────────────────────┤
-│ ● Reproduciendo xqc en [LG] webOS TV UP7710PSB                │
-├───────────────────────────────────────────────────────────────┤
-│ 09:09:16  2 TV(s) encontrada(s).                              │
-│ 09:09:17  Agregado a favoritos: xqc                           │
-│ 09:09:17  Reproduciendo https://twitch.tv/xqc                 │
-├───────────────────────────────────────────────────────────────┤
-│ ^d TV por defecto  ^q Salir  ^s Detener  ^r Refrescar  ^f Fav │
-└───────────────────────────────────────────────────────────────┘
+$ stream2tv
+stream2tv 0.8.0  ·  panel en http://192.168.1.18:8091/
+
+Para el celular, escanea este codigo con la camara:
+[código QR]
+
+Ctrl+C para salir (tambien detiene la TV).
 ```
 
-Las TVs de la red aparecen a la izquierda (flechas para moverte), escribís el canal a la derecha y `Enter` lo manda a la TV. El panel de abajo va registrando todo lo que pasa: cuándo se conectó la TV, si el canal está offline, si se cortó el stream.
+Se abre el panel en el navegador de la compu, ya autorizado, y en la terminal queda
+un QR para el celular: lo escaneás una vez y desde ahí lo abrís cuando quieras (se
+puede agregar a la pantalla de inicio). El mismo panel se acomoda a cada pantalla: en
+la compu, dos columnas; en el celular, una. También muestra el QR con el botón
+**Usar en el celular**.
 
-| Atajo | Qué hace |
-|---|---|
-| `Enter` | Reproducir el canal escrito |
-| `Ctrl+S` | Detener |
-| `Ctrl+R` | Volver a buscar TVs |
-| `Ctrl+D` | Guardar la TV seleccionada como predeterminada |
-| `Ctrl+E` | Ponerle un nombre propio a la TV ("Sala") |
-| `Ctrl+F` | Marcar/desmarcar el canal como favorito |
-| `Ctrl+W` | Mostrar el QR del panel web para el celular |
-| `Ctrl+Q` | Salir (detiene el stream antes) |
+Desde el panel elegís la TV, tocás un favorito o escribís otro canal, y lo detenés.
+"Qué ver" muestra arriba quién de tus favoritos está transmitiendo ahora, con el
+juego, el título y los espectadores. Todo lo que pasa (la TV se conectó, el canal
+está offline, se cortó y se reconectó) queda también en la terminal.
 
-Los atajos usan `Ctrl` a propósito: con letras sueltas se escribirían dentro del campo de canal.
-
-Podés cambiar de canal sin detener a mano — escribís otro y `Enter`, y corta el anterior solo. Los favoritos se guardan y con `Enter` sobre uno arranca directo. Cada 15 segundos chequea la TV: si se detuvo sola, lo ves en pantalla.
-
-**Panel web para el celular.** Junto con la TUI arranca un panel en `http://<ip-de-la-laptop>:8091`. Con `Ctrl+W` aparece un QR: lo escaneás una vez y manejás todo desde el celular (TV, canal, favoritos, detener). El celular y la TUI muestran siempre lo mismo, incluido quién de tus favoritos está transmitiendo ahora. Detalles en el [manual](docs/MANUAL.md).
-
-### Modo pregunta-respuesta
-
-Si preferís el flujo viejo de prompts en secuencia, sin TUI:
-
-```bash
-twitch2tv --wizard
-```
+`Ctrl+C`, cerrar la terminal o un `kill` apagan todo y detienen la TV.
 
 ### Modo directo
 
@@ -130,7 +98,7 @@ Hay dos backends y se elige solo:
 
 La detección es por URL y no hay que configurar nada: se le pregunta a streamlink si tiene plugin para esa dirección (por su API, sin tocar la red) y, si no lo tiene, se usa yt-dlp como red de contención. Se puede forzar con `--backend streamlink` o `--backend yt-dlp`.
 
-El selector de plataforma de la TUI **solo se usa cuando escribís un nombre de canal pelado** (`lacobraaa`). Si pegás una URL completa, se respeta tal cual, sin importar qué diga el selector.
+El selector de plataforma del panel **solo se usa cuando escribís un nombre de canal pelado** (`lacobraaa`). Si pegás una URL completa, se respeta tal cual, sin importar qué diga el selector.
 
 **Para que YouTube dé más de 360p hace falta un runtime de JavaScript** (`node`, `deno` o `bun`) instalado en el sistema. Sin uno, YouTube responde `403` en los formatos altos y solo queda el progresivo de 360p. Si tenés `node`, ya está.
 
@@ -165,12 +133,11 @@ Si el filtro `--tv` coincide con más de una TV, el comando falla y te muestra l
 |---|---|
 | `--port N` | Cambiar el puerto HTTP local del video (default `8090`) |
 | `--web-port N` | Puerto del panel web (default `8091`) |
-| `--no-web` | No abrir el panel web |
+| `--no-browser` | No abrir el panel en el navegador al arrancar |
 | `--quality Q` | Calidad de streamlink: `best`, `720p`, `worst`… (default `best`) |
 | `--low-latency` | Baja latencia en Twitch. Con poca RAM en la TV puede bufferear |
 | `--no-check` | No verificar si el canal está en vivo antes de castear |
 | `--backend B` | `auto` (default), `streamlink` o `yt-dlp` |
-| `-i` | Forzar modo interactivo aunque pases un canal |
 
 ## Estructura
 
@@ -179,14 +146,13 @@ stream2tv/
   discovery.py   SSDP, descubrimiento y selección de TV
   caster.py      servidor HTTP, pipe de streamlink y control DLNA
   config.py      TV predeterminada y favoritos
-  controlador.py estado y logica de reproduccion, compartidos por la TUI y la web
-  cli.py         argumentos, modo directo y wizard
-  tui.py         la app de terminal (Textual)
-  web.py         panel web para el celular (API + eventos en vivo)
+  controlador.py estado y logica de reproduccion; el panel le pide acciones
+  cli.py         argumentos, modo directo y arranque del panel
+  web.py         el panel web (API + eventos en vivo), para compu y celular
   envivo.py      quien de los favoritos esta transmitiendo (Twitch, Kick, YouTube)
   web/           la pagina del panel, su manifest e iconos
 bin/             entry points: stream2tv, kick2tv, twitch2tv
-tests/           tests de selección, URLs y de la TUI
+tests/           tests de selección, URLs, panel, reconexión y limpieza
 ```
 
 ## Tests
@@ -195,7 +161,11 @@ tests/           tests de selección, URLs y de la TUI
 ~/.local/share/stream2tv-venv/bin/python3 -m unittest discover -s tests
 ```
 
-95 tests. Cubren resolución de URLs, toda la lógica de selección de TV (filtros, ambigüedad, predeterminada, menú), la TUI corriendo de verdad en modo headless (reproducir, detener, cambiar de canal, favoritos, canal offline, puerto ocupado, quedarse sin TVs) y la limpieza al salir, con procesos reales: que se mate el árbol completo, que se libere el puerto y que salir por cualquier vía no deje nada corriendo.
+167 tests. Cubren resolución de URLs, la selección de TV, el Controlador (arranques en
+paralelo, detener a mitad de una verificación, la TV que se detiene sola), el panel
+con un servidor HTTP real (acceso con clave, cada acción, eventos en vivo), favoritos
+en vivo con respuestas simuladas de cada plataforma, la reconexión con procesos
+reales y la limpieza al salir por cualquier vía. Ningún test sale a internet.
 
 El descubrimiento real por red y el casteo a la TV se prueban a mano.
 

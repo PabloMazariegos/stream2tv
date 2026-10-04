@@ -10,9 +10,11 @@ la clave en una cookie del celular, y la API la exige en cada pedido.
 
 import hmac
 import http.server
+import io
 import json
 import os
 import queue
+import sys
 import threading
 from urllib.parse import parse_qs, urlparse
 
@@ -36,6 +38,15 @@ ARCHIVOS = {
     "/icono-192.png": ("icono-192.png", "image/png"),
     "/icono-512.png": ("icono-512.png", "image/png"),
 }
+
+
+class _Servidor(http.server.ThreadingHTTPServer):
+    def handle_error(self, request, client_address):
+        # Un celular que cierra la pestana o pierde el wifi a mitad de un pedido
+        # no es un error: sin esto, cada corte imprime un traceback en la terminal.
+        if isinstance(sys.exc_info()[1], (ConnectionError, TimeoutError)):
+            return
+        super().handle_error(request, client_address)
 
 
 class PanelOcupado(Exception):
@@ -65,7 +76,7 @@ class PanelWeb:
 
     def iniciar(self):
         try:
-            self._httpd = http.server.ThreadingHTTPServer((self.host, self.puerto), self._handler())
+            self._httpd = _Servidor((self.host, self.puerto), self._handler())
         except OSError as e:
             raise PanelOcupado(
                 f"No se pudo abrir el panel web en el puerto {self.puerto}: {e}. "
@@ -133,6 +144,13 @@ class PanelWeb:
                     datos = ctrl.estado()
                     datos["log"] = list(ctrl.log_reciente)
                     return self._json(200, datos)
+                if url.path == "/api/qr":
+                    if not self._autorizado():
+                        return self._json(401, {"error": "sin acceso"})
+                    svg = qr_svg(panel.url_con_clave)
+                    if svg is None:
+                        return self._json(404, {"error": "falta segno para dibujar el QR"})
+                    return self._enviar(200, svg, "image/svg+xml")
                 if url.path == "/api/eventos":
                     if not self._autorizado():
                         return self._json(401, {"error": "sin acceso"})
@@ -262,7 +280,7 @@ class PanelWeb:
                 self._json(202, {"ok": True})
 
             def _tv(self, datos):
-                if not ctrl.elegir_tv(str(datos.get("udn", ""))):
+                if not ctrl.elegir_tv(str(datos.get("udn", "")), recordar=True):
                     return self._json(404, {"error": "esa TV no esta en la red"})
                 self._json(200, {"ok": True})
 
@@ -298,6 +316,28 @@ def cargar_archivos():
         except OSError:
             pass
     return archivos
+
+
+def qr_terminal(texto):
+    """El QR en caracteres de bloque, para imprimir en la terminal; None si falta segno."""
+    try:
+        import segno
+    except ImportError:
+        return None
+    buffer = io.StringIO()
+    segno.make(texto, error="m").terminal(out=buffer, compact=True)
+    return buffer.getvalue().rstrip("\n")
+
+
+def qr_svg(texto):
+    """El QR como SVG (bytes), o None si falta segno."""
+    try:
+        import segno
+    except ImportError:
+        return None
+    buffer = io.BytesIO()
+    segno.make(texto, error="m").save(buffer, kind="svg", scale=4, border=2, xmldecl=False)
+    return buffer.getvalue()
 
 
 def clave_valida(clave):

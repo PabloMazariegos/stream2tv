@@ -243,11 +243,11 @@ padre, ese ffmpeg quedaba huérfano bajando el stream para siempre. Solución: c
 backend arranca con `start_new_session=True` (grupo de procesos propio) y se mata el
 grupo entero con `os.killpg` (`matar_arbol`, `caster.py:34`).
 
-**2. La limpieza dependía de un worker.** En la TUI, `detener_stream` corría en
+**2. La limpieza dependía de un worker** (en la TUI, que ya no existe). En la TUI, `detener_stream` corría en
 segundo plano; al salir enseguida, Textual lo cancelaba a mitad y la TV nunca recibía
 el `Stop`. Ahora es sincrónica.
 
-**4. Arranques en paralelo.** Los workers de Textual corren en threads y no se pueden
+**4. Arranques en paralelo** (encontrado en la TUI, hoy resuelto en el Controlador). Los workers de Textual corren en threads y no se pueden
 matar: `exclusive=True` solo los *marca* como cancelados. Apretar Reproducir dos veces
 mientras Kick tardaba dejaba dos arranques compitiendo por el puerto ("Puerto
 ocupado"). Ahora arrancar, detener y el monitor de estado pasan por un mismo lock, y
@@ -285,9 +285,8 @@ todo pase lo que pase.
 | `caster.py` | Backends, servidor HTTP, pipe, control DLNA, limpieza |
 | `plataformas.py` | `canal` / `tw:canal` / URL → URL final |
 | `config.py` | TV predeterminada y favoritos en `~/.config/stream2tv/config.json` |
-| `controlador.py` | Estado y lógica de reproducción; la TUI y la web son vistas que le piden acciones |
+| `controlador.py` | Estado y lógica de reproducción; el panel web le pide acciones y escucha sus eventos |
 | `cli.py` | Argumentos, modo directo, wizard |
-| `tui.py` | App de terminal (Textual) |
 | `envivo.py` | Quién de los favoritos está en vivo: GraphQL de Twitch, API de Kick (con el adaptador TLS de streamlink) y la página `/live` de YouTube |
 | `web.py` + `web/` | Panel web para el celular: página, API JSON y eventos en vivo (SSE) en `:8091` |
 | `pyproject.toml` | Dependencias y entry points; `twitch2tv` y `kick2tv` son `stream2tv` con plataforma fijada |

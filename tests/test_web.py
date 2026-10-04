@@ -1,6 +1,7 @@
 """Tests del panel web: servidor HTTP real contra un Controlador real con la red falseada."""
 
 import http.client
+import io
 import json
 import os
 import shutil
@@ -206,6 +207,8 @@ class TestAcciones(BaseWeb):
         r, _ = self.pedir("POST", "/api/tv", {"udn": "uuid:kodi"})
         self.assertEqual(r.status, 200)
         self.assertEqual(self.ctrl.tv_actual.udn, "uuid:kodi")
+        # Queda como la TV de siempre para la proxima vez que se abra stream2tv.
+        self.assertEqual(config.tv_por_defecto()[0], "uuid:kodi")
         r, _ = self.pedir("POST", "/api/tv", {"udn": "uuid:inventada"})
         self.assertEqual(r.status, 404)
 
@@ -230,6 +233,18 @@ class TestAcciones(BaseWeb):
         self.ctrl.en_vivo = {"twitch:xqc": {"vivo": True, "espectadores": 10, "titulo": "t", "categoria": "c"}}
         _, contenido = self.pedir("GET", "/api/estado")
         self.assertEqual(self.json_de(contenido)["en_vivo"]["twitch:xqc"]["espectadores"], 10)
+
+
+class TestCortesDeConexion(unittest.TestCase):
+    def test_un_cliente_que_corta_no_ensucia_la_terminal(self):
+        servidor = web._Servidor.__new__(web._Servidor)
+        errores = io.StringIO()
+        with mock.patch.object(sys, "stderr", errores):
+            try:
+                raise ConnectionResetError(104, "Connection reset by peer")
+            except ConnectionResetError:
+                servidor.handle_error(None, ("127.0.0.1", 1))
+        self.assertEqual(errores.getvalue(), "")
 
 
 class TestEventos(BaseWeb):
@@ -295,11 +310,19 @@ class TestAnuncios(BaseWeb):
         self.assertEqual(self.ctrl.anuncios, 0)
 
 
+class TestQREnElPanel(BaseWeb):
+    def test_el_qr_para_el_celular_sale_como_imagen_solo_con_clave(self):
+        r, _ = self.pedir("GET", "/api/qr", cookie=False)
+        self.assertEqual(r.status, 401)
+        r, contenido = self.pedir("GET", "/api/qr")
+        self.assertEqual(r.status, 200)
+        self.assertEqual(r.getheader("Content-Type"), "image/svg+xml")
+        self.assertTrue(contenido.lstrip().startswith(b"<svg"))
+
+
 class TestQR(unittest.TestCase):
     def test_el_qr_codifica_la_url_con_la_clave(self):
-        from stream2tv import tui
-
-        texto = tui.qr_texto("http://192.168.1.18:8091/?t=abc")
+        texto = web.qr_terminal("http://192.168.1.18:8091/?t=abc")
         self.assertIsNotNone(texto)
         self.assertGreater(texto.count("\n"), 10)
 

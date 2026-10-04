@@ -1,7 +1,10 @@
 """Interfaz de linea de comandos: modo directo y modo interactivo."""
 
 import argparse
+import os
+import signal
 import sys
+import threading
 import time
 
 from . import __version__, caster, config, discovery
@@ -121,92 +124,89 @@ def esperar_fin(tv):
             stopped_seguidos = 0
 
 
-def pedir_opcion(items, etiqueta, indice_defecto=None):
-    """Menu numerado. Devuelve el item elegido, o None si el usuario cancela."""
-    sugerencia = f" [{indice_defecto + 1}]" if indice_defecto is not None else ""
-    while True:
-        try:
-            respuesta = input(f"{etiqueta}{sugerencia}: ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return None
-        if not respuesta and indice_defecto is not None:
-            return items[indice_defecto]
-        if respuesta.isdigit() and 1 <= int(respuesta) <= len(items):
-            return items[int(respuesta) - 1]
-        print("Opcion invalida.")
+def servir(args, plataforma_default=None):
+    """Arranca el panel web y queda corriendo hasta Ctrl+C.
 
+    Es el modo normal: el panel se abre en el navegador de la laptop y, con el
+    QR que se imprime aca, tambien en el celular.
+    """
+    from .controlador import Controlador
+    from .web import PanelOcupado, PanelWeb, qr_terminal
 
-def modo_interactivo(args, plataforma_default=None):
-    print(f"=== stream2tv v{__version__} ===\n")
-
-    if args.tv_ip:
-        tv = obtener_tv(args)
-    else:
-        udn_defecto, nombre_defecto = config.tv_por_defecto()
-        tvs = buscar_tvs()
-        if not tvs:
-            print("No se encontro ninguna TV con DLNA en la red.")
-            print("Revisa que este encendida y en la misma red, o usa --tv-ip <ip>.")
-            return 1
-        print("\nTVs disponibles:")
-        imprimir_tvs(tvs, udn_defecto)
-        indice_defecto = next(
-            (i for i, tv in enumerate(tvs) if tv.udn == udn_defecto), 0 if len(tvs) == 1 else None
-        )
-        tv = pedir_opcion(tvs, "\nElegi una TV", indice_defecto)
-        if tv is None:
-            return 1
-        if tv.udn != udn_defecto:
-            try:
-                if input(f"Guardar '{tv.visible}' como TV por defecto? [s/N]: ").strip().lower() in ("s", "si", "y"):
-                    config.set_tv_por_defecto(tv.udn, tv.nombre)
-                    print("Guardada.")
-            except (EOFError, KeyboardInterrupt):
-                print()
-                return 1
-
-    print(f"\nUsando: {tv.visible}  ({tv.host})")
-
-    plataforma = plataforma_default
-    if plataforma is None:
-        claves = list(PLATAFORMAS)
-        print("\nPlataforma:")
-        for i, clave in enumerate(claves, 1):
-            print(f"  {i}) {PLATAFORMAS[clave][0]}")
-        plataforma = pedir_opcion(claves, "Elegi plataforma", 0)
-        if plataforma is None:
-            return 1
-
-    nombre_plataforma = PLATAFORMAS[plataforma][0]
-    while True:
-        try:
-            canal = input(f"\nCanal de {nombre_plataforma} (enter para salir): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return 0
-        if not canal:
-            return 0
-        url = resolver_url(canal, plataforma)
-        transmitir(tv, url, args, titulo=f"{nombre_plataforma} - {canal}")
-        print("\nStream detenido.")
-
-
-def lanzar_tui(args, plataforma_default):
-    """Abre la TUI. Si textual no esta instalado, cae al modo pregunta-respuesta."""
+    ctrl = Controlador(args.port, args.quality, args.low_latency, args.backend, plataforma_default)
+    panel = PanelWeb(ctrl, args.web_port)
     try:
-        from . import tui
-    except ImportError:
-        print("La TUI necesita 'textual' (pip install textual). Uso el modo simple.\n")
-        return modo_interactivo(args, plataforma_default)
-    return tui.lanzar(
-        plataforma_inicial=plataforma_default or "kick",
-        puerto=args.port,
-        calidad=args.quality,
-        low_latency=args.low_latency,
-        backend=args.backend,
-        puerto_web=None if args.no_web else args.web_port,
-    )
+        panel.iniciar()
+    except PanelOcupado as e:
+        print(e)
+        return 1
+    anteriores = salir_con_senales()
+    try:
+        print(f"stream2tv {__version__}  ·  panel en {panel.url}")
+        qr = qr_terminal(panel.url_con_clave)
+        if qr:
+            print("\nPara el celular, escanea este codigo con la camara:\n")
+            print(qr)
+        print("\nCtrl+C para salir (tambien detiene la TV).\n")
+        # La actividad del panel tambien queda en la terminal.
+        ctrl.suscribir(lambda evento, d: print(f"{d['hora']}  {d['texto']}", flush=True) if evento == "log" else None)
+        threading.Thread(target=ctrl.buscar_tvs, daemon=True).start()
+        ctrl.iniciar_sondeo()
+        if not args.no_browser:
+            abrir_navegador(panel.url_con_clave)
+        while True:
+            time.sleep(INTERVALO_MONITOR)
+            # Si la TV se detuvo sola, que el panel lo muestre.
+            ctrl.verificar_estado()
+    except KeyboardInterrupt:
+        print("\nSaliendo...")
+    finally:
+        # Un segundo Ctrl+C no debe cortar la limpieza a mitad: la TV podria
+        # quedarse sin recibir el Stop.
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        panel.detener()
+        ctrl.limpiar()
+        for senal, manejador in anteriores.items():
+            signal.signal(senal, manejador)
+    return 0
+
+
+def salir_con_senales():
+    """Cerrar la terminal (SIGHUP) o un kill (SIGTERM) salen como un Ctrl+C.
+
+    Sin esto el proceso moria sin limpiar: la TV seguia reproduciendo y
+    streamlink, que corre en su propio grupo de procesos, quedaba huerfano.
+    Tambien se reactiva SIGINT por si llego ignorado (lanzado en segundo plano).
+    Devuelve los manejadores anteriores, para restaurarlos al salir.
+    """
+    def salir(senal, cuadro):
+        raise KeyboardInterrupt
+
+    anteriores = {}
+    for nombre in ("SIGINT", "SIGTERM", "SIGHUP"):
+        senal = getattr(signal, nombre, None)
+        if senal is None:
+            continue
+        try:
+            anteriores[senal] = signal.signal(senal, signal.default_int_handler if nombre == "SIGINT" else salir)
+        except ValueError:
+            pass  # fuera del hilo principal no se pueden cambiar
+    return anteriores
+
+
+def abrir_navegador(url):
+    """Abre el panel en el navegador de la compu, si hay uno grafico."""
+    import webbrowser
+
+    # Sin escritorio (por SSH, por ejemplo) webbrowser abriria un navegador de
+    # texto adentro de esta misma terminal: mejor no abrir nada.
+    if sys.platform.startswith("linux") and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        print(f"Abri el panel en un navegador: {url}")
+        return False
+    try:
+        return webbrowser.open(url)
+    except Exception:
+        return False
 
 
 def construir_parser(nombre_programa, plataforma_default):
@@ -215,8 +215,6 @@ def construir_parser(nombre_programa, plataforma_default):
         descripcion = f"Transmite un canal de {PLATAFORMAS[plataforma_default][0]} a una TV DLNA."
     p = argparse.ArgumentParser(prog=nombre_programa, description=descripcion)
     p.add_argument("canal", nargs="?", help="canal o URL. Usa 'stop' para detener la TV.")
-    p.add_argument("-i", "--interactive", action="store_true", help="abrir la TUI aunque pases un canal")
-    p.add_argument("--wizard", action="store_true", help="modo pregunta-respuesta, sin TUI")
     p.add_argument("--tv", metavar="TEXTO", help="elegir TV por nombre, UDN o IP (parcial)")
     p.add_argument("--tv-ip", metavar="IP", help="conectar directo a esa IP, sin descubrimiento")
     p.add_argument("--list-tvs", action="store_true", help="listar las TVs de la red y salir")
@@ -236,7 +234,8 @@ def construir_parser(nombre_programa, plataforma_default):
         "--web-port", type=int, default=PUERTO_WEB_DEFECTO,
         help=f"puerto del panel web para el celular (default {PUERTO_WEB_DEFECTO})",
     )
-    p.add_argument("--no-web", action="store_true", help="no abrir el panel web junto con la TUI")
+    p.add_argument("--no-browser", action="store_true", help="no abrir el panel en el navegador al arrancar")
+    p.add_argument("--reset-key", action="store_true", help="renovar la clave del panel (desautoriza a todos los celulares)")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return p
 
@@ -244,6 +243,12 @@ def construir_parser(nombre_programa, plataforma_default):
 def main(plataforma_default=None, argv=None, nombre_programa=None):
     parser = construir_parser(nombre_programa or "stream2tv", plataforma_default)
     args = parser.parse_args(argv)
+
+    if args.reset_key:
+        config.regenerar_token_web()
+        print("Clave del panel renovada: los celulares autorizados antes ya no entran.")
+        print("Abri stream2tv y volve a escanear el QR con los que si queres usar.")
+        return 0
 
     if args.forget_default:
         config.limpiar_tv_por_defecto()
@@ -273,13 +278,8 @@ def main(plataforma_default=None, argv=None, nombre_programa=None):
         print(f"'{tv.visible}' guardada como TV por defecto.")
         return 0
 
-    if args.canal is None or args.interactive:
-        if not sys.stdin.isatty():
-            parser.print_help()
-            return 1
-        if args.wizard:
-            return modo_interactivo(args, plataforma_default)
-        return lanzar_tui(args, plataforma_default)
+    if args.canal is None:
+        return servir(args, plataforma_default)
 
     tv = obtener_tv(args)
     if args.set_default:
