@@ -51,7 +51,7 @@ $ twitch2tv
 ```
 
 ```
-┌─ stream2tv ───────────────────────────────── v0.6.0 ── 09:09 ─┐
+┌─ stream2tv ───────────────────────────────── v0.7.0 ── 09:09 ─┐
 │ TVs en la red          │ Que ver                              │
 │                        │ ┌──────────────────────────────────┐ │
 │ [LG] webOS TV UP7710 * │ │ Twitch                         ▾ │ │
@@ -82,6 +82,7 @@ Las TVs de la red aparecen a la izquierda (flechas para moverte), escribís el c
 | `Ctrl+S` | Detener |
 | `Ctrl+R` | Volver a buscar TVs |
 | `Ctrl+D` | Guardar la TV seleccionada como predeterminada |
+| `Ctrl+E` | Ponerle un nombre propio a la TV ("Sala") |
 | `Ctrl+F` | Marcar/desmarcar el canal como favorito |
 | `Ctrl+W` | Mostrar el QR del panel web para el celular |
 | `Ctrl+Q` | Salir (detiene el stream antes) |

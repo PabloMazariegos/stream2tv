@@ -81,6 +81,36 @@ def regenerar_token_web():
     return datos["token_web"]
 
 
+MAX_ALIAS = 40
+
+
+def alias_tvs():
+    """{udn: alias}. Se guarda por UDN, no por IP: el router puede cambiar la IP."""
+    return cargar().get("alias_tvs", {})
+
+
+def set_alias_tv(udn, alias):
+    """Guarda el alias de una TV; vacio lo borra. Devuelve el alias que quedo (o None)."""
+    alias = (alias or "").strip()[:MAX_ALIAS]
+    datos = cargar()
+    nombres = datos.get("alias_tvs", {})
+    if alias:
+        nombres[udn] = alias
+    else:
+        nombres.pop(udn, None)
+    datos["alias_tvs"] = nombres
+    guardar(datos)
+    return alias or None
+
+
+def aplicar_alias(tvs):
+    """Le pone a cada TV descubierta el alias guardado. Devuelve la misma lista."""
+    nombres = alias_tvs()
+    for tv in tvs:
+        tv.alias = nombres.get(tv.udn)
+    return tvs
+
+
 def favoritos():
     """Lista de {'canal': str, 'plataforma': str}, en el orden en que se agregaron."""
     return cargar().get("favoritos", [])

@@ -223,6 +223,7 @@ class PanelWeb:
                     "/api/reproducir": self._reproducir,
                     "/api/detener": self._detener,
                     "/api/tv": self._tv,
+                    "/api/tv/nombre": self._renombrar_tv,
                     "/api/buscar-tvs": self._buscar_tvs,
                     "/api/favoritos": self._favorito,
                 }
@@ -261,6 +262,14 @@ class PanelWeb:
 
             def _tv(self, datos):
                 if not ctrl.elegir_tv(str(datos.get("udn", ""))):
+                    return self._json(404, {"error": "esa TV no esta en la red"})
+                self._json(200, {"ok": True})
+
+            def _renombrar_tv(self, datos):
+                alias = datos.get("alias", "")
+                if not isinstance(alias, str):
+                    return self._json(400, {"error": "el nombre tiene que ser texto"})
+                if not ctrl.renombrar_tv(str(datos.get("udn", "")), alias):
                     return self._json(404, {"error": "esa TV no esta en la red"})
                 self._json(200, {"ok": True})
 

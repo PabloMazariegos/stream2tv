@@ -21,6 +21,13 @@ class TV:
     nombre: str
     location: str
     device: object
+    # Nombre que le puso el usuario ("Sala"); None = el de fabrica.
+    alias: str = None
+
+    @property
+    def visible(self):
+        """El nombre a mostrar: el alias si hay, si no el de fabrica."""
+        return self.alias or self.nombre
 
     @property
     def host(self):
@@ -32,9 +39,14 @@ class TV:
         return self.device["AVTransport"]
 
     def coincide(self, texto):
-        """True si el texto (case-insensitive) matchea el nombre, el UDN o la IP."""
+        """True si el texto (case-insensitive) matchea el alias, el nombre, el UDN o la IP."""
         t = texto.lower()
-        return t in self.nombre.lower() or t in self.udn.lower() or t == self.host
+        return (
+            (self.alias is not None and t in self.alias.lower())
+            or t in self.nombre.lower()
+            or t in self.udn.lower()
+            or t == self.host
+        )
 
 
 def _buscar_locations(timeout=SSDP_TIMEOUT):
@@ -165,12 +177,12 @@ def elegir(tvs, filtro=None, udn_preferido=None, interactivo=None):
         if not candidatas:
             print(f"Ninguna TV coincide con '{filtro}'. Disponibles:")
             for tv in tvs:
-                print(f"  - {tv.nombre}  ({tv.host})")
+                print(f"  - {tv.visible}  ({tv.host})")
             raise SystemExit(1)
         if len(candidatas) > 1:
             print(f"'{filtro}' es ambiguo, coincide con varias TVs:")
             for tv in candidatas:
-                print(f"  - {tv.nombre}  ({tv.host})")
+                print(f"  - {tv.visible}  ({tv.host})")
             raise SystemExit(1)
         return candidatas[0]
 
@@ -188,13 +200,13 @@ def elegir(tvs, filtro=None, udn_preferido=None, interactivo=None):
     if not interactivo:
         print("Hay varias TVs en la red y no se indico cual usar:")
         for tv in tvs:
-            print(f"  - {tv.nombre}  ({tv.host})")
+            print(f"  - {tv.visible}  ({tv.host})")
         print("Usa --tv <nombre> o guarda una por defecto con --set-default.")
         raise SystemExit(1)
 
     print("Se encontraron varias TVs:")
     for i, tv in enumerate(tvs, 1):
-        print(f"  {i}) {tv.nombre}  ({tv.host})")
+        print(f"  {i}) {tv.visible}  ({tv.host})")
     while True:
         try:
             respuesta = input(f"Cual usar? [1-{len(tvs)}]: ").strip()

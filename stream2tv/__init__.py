@@ -1,3 +1,3 @@
 """stream2tv — transmite streams en vivo a una TV DLNA (LG webOS y compatibles)."""
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"

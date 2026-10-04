@@ -46,7 +46,8 @@ class ItemTV(ListItem):
 
     def __init__(self, tv, es_defecto):
         marca = " *" if es_defecto else ""
-        super().__init__(Label(f"{tv.nombre}{marca}\n  {tv.host}"))
+        detalle = f"{tv.nombre} · {tv.host}" if tv.alias else tv.host
+        super().__init__(Label(f"{escape(tv.visible)}{marca}\n  [dim]{escape(detalle)}[/dim]"))
         self.tv = tv
 
 
@@ -127,6 +128,38 @@ class PantallaQR(ModalScreen):
         self.app.pop_screen()
 
 
+class PantallaRenombrar(ModalScreen):
+    """Pide el nombre propio de una TV ("Sala"). Vacio vuelve al de fabrica."""
+
+    BINDINGS = [Binding("escape", "cancelar", "Cancelar")]
+    DEFAULT_CSS = """
+    PantallaRenombrar { align: center middle; }
+    #caja-nombre { width: 60; height: auto; border: round $accent; padding: 1 2; background: $surface; }
+    .ayuda { color: $text-muted; }
+    """
+
+    def __init__(self, tv):
+        super().__init__()
+        self.tv = tv
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="caja-nombre"):
+            yield Static(f"Nombre para {escape(self.tv.nombre)}", classes="titulo")
+            yield Input(value=self.tv.alias or "", placeholder=self.tv.nombre, id="alias")
+            yield Static("Enter guarda. Vacio vuelve al nombre de fabrica. Esc cancela.", classes="ayuda")
+
+    def on_mount(self):
+        self.query_one("#alias", Input).focus()
+
+    @on(Input.Submitted, "#alias")
+    def guardar(self, evento):
+        self.app.ctrl.renombrar_tv(self.tv.udn, evento.value)
+        self.app.pop_screen()
+
+    def action_cancelar(self):
+        self.app.pop_screen()
+
+
 class StreamTVApp(App):
     """App principal. Mantiene el stream vivo mientras la ventana este abierta."""
 
@@ -154,6 +187,7 @@ class StreamTVApp(App):
         Binding("ctrl+s", "detener", "Detener", priority=True),
         Binding("ctrl+r", "refrescar", "Refrescar TVs", priority=True),
         Binding("ctrl+d", "predeterminar", "TV por defecto", priority=True),
+        Binding("ctrl+e", "renombrar", "Renombrar TV", priority=True),
         Binding("ctrl+f", "favorito", "Favorito", priority=True),
         Binding("ctrl+w", "panel", "Panel web", priority=True),
         Binding("ctrl+q", "salir", "Salir", priority=True),
@@ -328,7 +362,7 @@ class StreamTVApp(App):
         """Redibuja la lista de TVs solo si cambio, y sigue a la TV elegida."""
         ctrl = self.ctrl
         lista = self.query_one("#lista-tvs", ListView)
-        firma = (tuple(tv.udn for tv in ctrl.tvs), ctrl.udn_defecto)
+        firma = (tuple((tv.udn, tv.alias) for tv in ctrl.tvs), ctrl.udn_defecto)
         # Los Highlighted que genera el propio redibujado no son elecciones del
         # usuario: si llegaran, la TV elegida saltaria a la primera de la lista.
         with lista.prevent(ListView.Highlighted):
@@ -390,6 +424,12 @@ class StreamTVApp(App):
 
     def action_predeterminar(self):
         self.ctrl.predeterminar()
+
+    def action_renombrar(self):
+        if self.ctrl.tv_actual is None:
+            self.log_ui("No hay TV seleccionada para renombrar.", "yellow")
+            return
+        self.push_screen(PantallaRenombrar(self.ctrl.tv_actual))
 
     # ---------- reproduccion ----------
 

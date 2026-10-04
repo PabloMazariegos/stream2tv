@@ -19,13 +19,14 @@ STOPPED_PARA_CORTAR = 2
 def buscar_tvs(mostrar=True):
     if mostrar:
         print("Buscando TVs en la red...", flush=True)
-    return discovery.descubrir()
+    return config.aplicar_alias(discovery.descubrir())
 
 
 def imprimir_tvs(tvs, udn_defecto=None):
     for i, tv in enumerate(tvs, 1):
         marca = "  <- por defecto" if udn_defecto and tv.udn == udn_defecto else ""
-        print(f"  {i}) {tv.nombre}  ({tv.host}){marca}")
+        extra = f"  [{tv.nombre}]" if tv.alias else ""
+        print(f"  {i}) {tv.visible}{extra}  ({tv.host}){marca}")
 
 
 def obtener_tv(args):
@@ -33,16 +34,18 @@ def obtener_tv(args):
     if args.tv_ip:
         print(f"Conectando directo a {args.tv_ip}...")
         tv = discovery.desde_ip(args.tv_ip)
+        if tv is not None:
+            config.aplicar_alias([tv])
         if tv is None:
             print(f"No se pudo hablar DLNA con {args.tv_ip}.")
             raise SystemExit(1)
-        print(f"TV: {tv.nombre}")
+        print(f"TV: {tv.visible}")
         return tv
 
     udn_defecto, _ = config.tv_por_defecto()
     tvs = buscar_tvs()
     tv = discovery.elegir(tvs, filtro=args.tv, udn_preferido=udn_defecto)
-    print(f"TV: {tv.nombre}  ({tv.host})")
+    print(f"TV: {tv.visible}  ({tv.host})")
     return tv
 
 
@@ -156,14 +159,14 @@ def modo_interactivo(args, plataforma_default=None):
             return 1
         if tv.udn != udn_defecto:
             try:
-                if input(f"Guardar '{tv.nombre}' como TV por defecto? [s/N]: ").strip().lower() in ("s", "si", "y"):
+                if input(f"Guardar '{tv.visible}' como TV por defecto? [s/N]: ").strip().lower() in ("s", "si", "y"):
                     config.set_tv_por_defecto(tv.udn, tv.nombre)
                     print("Guardada.")
             except (EOFError, KeyboardInterrupt):
                 print()
                 return 1
 
-    print(f"\nUsando: {tv.nombre}  ({tv.host})")
+    print(f"\nUsando: {tv.visible}  ({tv.host})")
 
     plataforma = plataforma_default
     if plataforma is None:
@@ -267,7 +270,7 @@ def main(plataforma_default=None, argv=None, nombre_programa=None):
     if args.set_default and not args.canal:
         tv = obtener_tv(args)
         config.set_tv_por_defecto(tv.udn, tv.nombre)
-        print(f"'{tv.nombre}' guardada como TV por defecto.")
+        print(f"'{tv.visible}' guardada como TV por defecto.")
         return 0
 
     if args.canal is None or args.interactive:
@@ -281,7 +284,7 @@ def main(plataforma_default=None, argv=None, nombre_programa=None):
     tv = obtener_tv(args)
     if args.set_default:
         config.set_tv_por_defecto(tv.udn, tv.nombre)
-        print(f"'{tv.nombre}' guardada como TV por defecto.")
+        print(f"'{tv.visible}' guardada como TV por defecto.")
 
     url = resolver_url(args.canal, plataforma_default)
     ok = transmitir(tv, url, args, titulo=url)

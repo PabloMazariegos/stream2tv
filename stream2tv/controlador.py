@@ -124,7 +124,10 @@ class Controlador:
             "desde": self.desde.isoformat(timespec="seconds") if self.desde else None,
             "tv": self.tv_actual.udn if self.tv_actual else None,
             "tv_defecto": self.udn_defecto,
-            "tvs": [{"udn": tv.udn, "nombre": tv.nombre, "ip": tv.host} for tv in self.tvs],
+            "tvs": [
+                {"udn": tv.udn, "nombre": tv.visible, "original": tv.nombre, "alias": tv.alias, "ip": tv.host}
+                for tv in self.tvs
+            ],
             "favoritos": config.favoritos(),
             "anuncios": self.anuncios,
             "en_vivo": self.en_vivo,
@@ -137,7 +140,7 @@ class Controlador:
         # Mientras se reproduce, buscar no cambia la fase: el stream sigue.
         if not self.reproduciendo:
             self._fase(BUSCANDO, "Buscando TVs...")
-        tvs = discovery.descubrir()
+        tvs = config.aplicar_alias(discovery.descubrir())
         if not tvs:
             self.log("Sin TVs. Revisa que este encendida y en la misma red.", "error")
             if self.reproduciendo:
@@ -160,7 +163,7 @@ class Controlador:
         if self.reproduciendo:
             self._emitir("estado", self.estado())
         else:
-            self._fase(LIBRE, f"Listo. TV: {self.tv_actual.nombre}")
+            self._fase(LIBRE, f"Listo. TV: {self.tv_actual.visible}")
         return tvs
 
     def elegir_tv(self, tv_o_udn):
@@ -173,7 +176,7 @@ class Controlador:
             return False
         self.tv_actual = tv
         if self.fase in (LIBRE, ERROR):
-            self._fase(LIBRE, f"Listo. TV: {tv.nombre}")
+            self._fase(LIBRE, f"Listo. TV: {tv.visible}")
         else:
             self._emitir("estado", self.estado())
         return True
@@ -183,8 +186,25 @@ class Controlador:
             return False
         config.set_tv_por_defecto(self.tv_actual.udn, self.tv_actual.nombre)
         self.udn_defecto = self.tv_actual.udn
-        self.log(f"'{self.tv_actual.nombre}' guardada como TV por defecto.", "ok")
+        self.log(f"'{self.tv_actual.visible}' guardada como TV por defecto.", "ok")
         self._emitir("estado", self.estado())
+        return True
+
+    def renombrar_tv(self, udn, alias):
+        """Pone (o borra, con alias vacio) el nombre propio de una TV."""
+        tv = next((t for t in self.tvs if t.udn == udn), None)
+        if tv is None:
+            return False
+        anterior = tv.visible
+        tv.alias = config.set_alias_tv(udn, alias)
+        if tv.alias:
+            self.log(f"'{tv.nombre}' ahora se llama '{tv.alias}'.", "ok")
+        else:
+            self.log(f"'{anterior}' vuelve a llamarse '{tv.nombre}'.", "ok")
+        if self.fase == LIBRE and self.tv_actual is tv:
+            self._fase(LIBRE, f"Listo. TV: {tv.visible}")
+        else:
+            self._emitir("estado", self.estado())
         return True
 
     # ---------- favoritos ----------
@@ -343,7 +363,7 @@ class Controlador:
         self.anuncios = 0
         if arranco:
             self.log(f"Reproduciendo {url}", "ok")
-            self._fase(REPRODUCIENDO, f"Reproduciendo {canal} en {tv.nombre}")
+            self._fase(REPRODUCIENDO, f"Reproduciendo {canal} en {tv.visible}")
         else:
             self._fase(REPRODUCIENDO, f"{canal}: la TV no confirmo, puede arrancar sola")
         return True
@@ -366,7 +386,7 @@ class Controlador:
         if tipo == "reconectando":
             self._fase(RECONECTANDO, f"Reconectando... intento {intento} de {total}")
         elif tipo == "recuperado":
-            tv = self._tv_en_uso.nombre if self._tv_en_uso else "la TV"
+            tv = self._tv_en_uso.visible if self._tv_en_uso else "la TV"
             self._fase(REPRODUCIENDO, f"Reproduciendo {self.canal} en {tv}")
         elif tipo == "terminado":
             self._fase(ERROR, "Se corto el stream y no se pudo recuperar")

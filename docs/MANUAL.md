@@ -94,7 +94,7 @@ twitch2tv
 Se abre una app de terminal que queda viva:
 
 ```
-┌─ stream2tv ───────────────────────────────── v0.6.0 ── 09:09 ─┐
+┌─ stream2tv ───────────────────────────────── v0.7.0 ── 09:09 ─┐
 │ TVs en la red          │ Que ver                              │
 │                        │ ┌──────────────────────────────────┐ │
 │ [LG] webOS TV UP7710 * │ │ Twitch                         ▾ │ │
@@ -120,6 +120,7 @@ elegís plataforma y escribís el canal. `Enter` lo manda a la TV.
 | `Ctrl+S` | Detener |
 | `Ctrl+R` | Volver a buscar TVs |
 | `Ctrl+D` | Guardar la TV seleccionada como predeterminada |
+| `Ctrl+E` | Ponerle un nombre propio a la TV seleccionada ("Sala") |
 | `Ctrl+F` | Marcar/desmarcar el canal como favorito |
 | `Ctrl+W` | Mostrar el QR del panel web para el celular |
 | `Ctrl+Q` | Salir (detiene el stream antes) |
@@ -206,6 +207,14 @@ Si `--tv` coincide con más de una TV, el comando falla y te muestra las opcione
 vez de adivinar.
 
 ---
+
+### Nombres propios para las TVs
+
+En vez de `65" Crystal UHD` o `Kodi (Mi Box)` podés llamarlas "Sala" y "Cuarto":
+con `Ctrl+E` en la TUI, o con "Editar" en la lista de TVs del panel. El nombre se
+guarda atado al identificador de la TV (no a su IP), así sobrevive a que el router le
+cambie la dirección. Vacío vuelve al nombre de fábrica. También sirve para elegir:
+`stream2tv --tv sala`.
 
 ## 6. Todas las opciones
 
