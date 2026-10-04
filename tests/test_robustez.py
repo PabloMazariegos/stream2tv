@@ -181,6 +181,23 @@ class TestReconexion(unittest.TestCase):
         self.assertEqual(self.avisos.count("reconectando"), 3)
         self.assertTrue(any("No playable streams" in m for m in self.mensajes if "no se pudo recuperar" in m))
 
+    def test_el_motivo_no_se_pierde_si_stderr_llega_tarde(self):
+        # Con la maquina cargada, el stdout del backend puede cerrarse antes de
+        # que el hilo de stderr lea la ultima linea: el motivo del corte.
+        original = caster._juntar_stderr
+
+        def lento(proc, destino, avisar=None):
+            time.sleep(0.2)
+            return original(proc, destino, avisar)
+
+        with mock.patch.object(caster, "_juntar_stderr", lento):
+            self._servidor("echo 'error: No playable streams found' >&2; exit 1")
+            with urllib.request.urlopen(self._url(), timeout=10) as r:
+                r.read()
+            self.assertTrue(self._esperar(lambda: "terminado" in self.avisos))
+        final = [m for m in self.mensajes if "no se pudo recuperar" in m]
+        self.assertIn("No playable streams", final[0])
+
     def test_detener_durante_la_espera_no_relanza(self):
         contador = os.path.join(self.dir, "corridas")
         with mock.patch.object(caster, "ESPERAS_REINTENTO", (2, 2)):

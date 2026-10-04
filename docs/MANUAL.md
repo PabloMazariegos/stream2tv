@@ -211,7 +211,8 @@ vez de adivinar.
 ### Nombres propios para las TVs
 
 En vez de `65" Crystal UHD` o `Kodi (Mi Box)` podés llamarlas "Sala" y "Cuarto":
-con `Ctrl+E` en la TUI, o con "Editar" en la lista de TVs del panel. El nombre se
+con `Ctrl+E` en la TUI, o tocando el lápiz al lado de la TV en el panel (se abre una
+hoja con sugerencias como Sala, Cuarto o Comedor). El nombre se
 guarda atado al identificador de la TV (no a su IP), así sobrevive a que el router le
 cambie la dirección. Vacío vuelve al nombre de fábrica. También sirve para elegir:
 `stream2tv --tv sala`.

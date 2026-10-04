@@ -372,7 +372,7 @@ class Servidor:
                 intentos = 0
                 try:
                     while True:
-                        proc, errores = servidor._lanzar(comando)
+                        proc, errores, lector = servidor._lanzar(comando)
                         inicio = time.monotonic()
                         recibio = fin_normal = False
                         try:
@@ -390,6 +390,11 @@ class Servidor:
                                 self.wfile.write(chunk)
                         finally:
                             cortado = proc in servidor._cortados
+                            if fin_normal and not cortado:
+                                # El stdout puede terminar antes de que el hilo de
+                                # stderr lea la ultima linea, justo la que dice por
+                                # que se corto. Se lo espera un poco.
+                                lector.join(timeout=2)
                             codigo = servidor._soltar(proc, esperar=fin_normal and not cortado)
                         if cortado or not servidor._vigente(mi_turno):
                             return  # lo cortamos nosotros: Detener, otro canal u otra conexion
@@ -446,10 +451,11 @@ class Servidor:
             start_new_session=True,
         )
         errores = collections.deque(maxlen=LINEAS_STDERR)
-        threading.Thread(target=_juntar_stderr, args=(proc, errores, self.al_aviso), daemon=True).start()
+        lector = threading.Thread(target=_juntar_stderr, args=(proc, errores, self.al_aviso), daemon=True)
+        lector.start()
         with self._lock:
             self._procesos.append(proc)
-        return proc, errores
+        return proc, errores, lector
 
     def _soltar(self, proc, esperar=False):
         """Termina y limpia un backend. Devuelve su codigo de salida si se conoce."""

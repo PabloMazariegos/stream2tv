@@ -50,6 +50,10 @@ class PanelWeb:
         self._httpd = None
         self._hilo = None
         self._cerrando = threading.Event()
+        # La pagina se lee una sola vez, al arrancar: si se leyera del disco en
+        # cada visita, despues de actualizar stream2tv el celular recibiria la
+        # pagina nueva hablando con una app vieja (y botones que "no existen").
+        self.archivos = cargar_archivos()
 
     @property
     def url(self):
@@ -147,13 +151,10 @@ class PanelWeb:
                 self._enviar(303, extra=extra)
 
             def _archivo(self, ruta):
-                nombre, tipo = ARCHIVOS[ruta]
-                try:
-                    with open(os.path.join(CARPETA_WEB, nombre), "rb") as f:
-                        cuerpo = f.read()
-                except OSError:
+                cuerpo = panel.archivos.get(ruta)
+                if cuerpo is None:
                     return self._json(404, {"error": "no existe"})
-                self._enviar(200, cuerpo, tipo)
+                self._enviar(200, cuerpo, ARCHIVOS[ruta][1])
 
             def _eventos(self):
                 """Server-Sent Events: empuja cada cambio del Controlador al celular."""
@@ -285,6 +286,18 @@ class PanelWeb:
                 self._json(200, {"ok": True, "agregado": agregado})
 
         return Handler
+
+
+def cargar_archivos():
+    """{ruta: bytes} de los archivos del panel que existen en disco."""
+    archivos = {}
+    for ruta, (nombre, _tipo) in ARCHIVOS.items():
+        try:
+            with open(os.path.join(CARPETA_WEB, nombre), "rb") as f:
+                archivos[ruta] = f.read()
+        except OSError:
+            pass
+    return archivos
 
 
 def clave_valida(clave):

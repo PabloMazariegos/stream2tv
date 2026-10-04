@@ -137,6 +137,15 @@ class TestAcceso(BaseWeb):
         self.assertEqual(r.status, 401)
         self.assertEqual(self.enviados, [])
 
+    def test_la_pagina_es_la_de_cuando_arranco_la_app(self):
+        # Actualizar stream2tv con la app abierta no debe mezclar una pagina
+        # nueva con un servidor viejo: se sigue sirviendo la cargada al inicio.
+        original = self.panel.archivos["/"]
+        with mock.patch.object(web, "CARPETA_WEB", tempfile.mkdtemp()):
+            r, contenido = self.pedir("GET", "/", cookie=False)
+        self.assertEqual(r.status, 200)
+        self.assertEqual(contenido, original)
+
     def test_solo_sirve_los_archivos_del_panel(self):
         for ruta in ("/index.html", "/../config.json", "/web/index.html", "/stream2tv/config.py"):
             r, _ = self.pedir("GET", ruta)

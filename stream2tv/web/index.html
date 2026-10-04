@@ -77,21 +77,39 @@ svg { display: block; flex: 0 0 auto; }
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px;
   min-height: 46px; border-top: 1px solid var(--line); width: 100%; text-align: left;
 }
-.lista > :first-child, #favs > :first-child { border-top: 0; }
+.lista > :first-child, #favs > :first-child, #favs:empty + .otro { border-top: 0; }
 .n { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .n span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .n small { display: block; font-size: 11px; color: var(--tenue); }
-.acciones-cab { display: flex; gap: 16px; }
-/* Renombrar TVs: cada fila pasa a ser un campo con su boton de guardar. */
-.renombrar { display: flex; align-items: center; gap: 10px; min-height: 56px; border-top: 1px solid var(--line); }
-.renombrar .campo { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.renombrar input { height: 36px; border: 0; border-bottom: 1px solid var(--borde); background: transparent; padding: 0; font-size: 16px; outline: none; }
-.renombrar input:focus { border-bottom: 1.5px solid var(--ink); }
-.renombrar input::placeholder { color: var(--tenue); }
-.renombrar small { font-size: 11px; color: var(--tenue); margin-top: 3px; }
-.ok { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--borde); color: var(--muted); display: grid; place-items: center; flex: 0 0 auto; }
-.ok.cambio { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-.ayuda-tv { margin: 0; padding-top: 4px; font-size: 12px; color: var(--tenue); }
+/* Fila de TV: el toque elige la TV; el lapiz abre la hoja para renombrarla. */
+.fila-tv { display: flex; align-items: center; border-top: 1px solid var(--line); }
+.tv-sel { flex: 1; min-width: 0; min-height: 52px; display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; text-align: left; }
+.tv-sel .check { text-align: center; }
+.lapiz { width: 44px; height: 44px; color: var(--muted); display: grid; place-items: center; flex: 0 0 auto; }
+
+/* Hoja que sube desde abajo para ponerle nombre a una TV. */
+.velo { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, .55); }
+.hoja {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 11; max-width: 520px; margin: 0 auto;
+  background: #17171a; border-radius: 22px 22px 0 0;
+  padding: 10px 20px calc(env(safe-area-inset-bottom, 0px) + 28px);
+  display: flex; flex-direction: column; gap: 18px; animation: subir .2s ease-out;
+}
+@keyframes subir { from { transform: translateY(100%); } }
+.asa { align-self: center; width: 36px; height: 4px; border-radius: 2px; background: #3a3a40; }
+.hoja-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.hoja h2 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+.hoja-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.hoja input {
+  height: 50px; border: 1.5px solid var(--ink); border-radius: 12px; background: #0f0f12;
+  padding: 0 14px; font-size: 17px; outline: none; width: 100%;
+}
+.hoja input::placeholder { color: var(--tenue); }
+.sugerencias { display: flex; flex-wrap: wrap; gap: 8px; }
+.sugerencia { height: 34px; padding: 0 14px; border-radius: 17px; border: 1px solid var(--borde); font-size: 13px; }
+.sugerencia.activa { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 600; }
+.guardar { height: 50px; border-radius: 12px; background: var(--ink); color: var(--bg); font-weight: 600; font-size: 15px; }
+.texto-btn { font-size: 13px; color: var(--muted); min-height: 32px; }
 .en-tv, .vivos { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--vivo); white-space: nowrap; }
 .en-tv i, .vivos i { width: 6px; height: 6px; border-radius: 50%; background: var(--vivo); flex: 0 0 auto; }
 .vivos { color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -138,7 +156,7 @@ details.log[open] summary::after { content: " ▴"; }
   border-radius: 12px; padding: 12px 14px; font-size: 13px;
 }
 
-@media (prefers-reduced-motion: reduce) { .espera { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .espera, .hoja { animation: none; } }
 </style>
 </head>
 <body>
@@ -176,15 +194,35 @@ details.log[open] summary::after { content: " ▴"; }
     </section>
 
     <section class="bloque">
-      <div class="cab"><h2>TV</h2><span class="acciones-cab"><button class="accion" type="button" data-accion="editar-tvs" id="btn-editar-tvs">Editar</button><button class="accion" type="button" data-accion="buscar" id="btn-buscar">Buscar</button></span></div>
+      <div class="cab"><h2>TV</h2><button class="accion" type="button" data-accion="buscar" id="btn-buscar">Buscar</button></div>
       <div class="lista" id="tvs"></div>
-      <p class="ayuda-tv" id="ayuda-tv" hidden>Dejalo vacío para volver al nombre de fábrica.</p>
     </section>
 
     <details class="log"><summary>Actividad</summary><div class="log-lineas" id="log-lineas"></div></details>
   </div>
 </main>
 <div class="aviso" id="aviso" role="status" hidden></div>
+
+<div class="velo" id="velo" hidden></div>
+<form class="hoja" id="hoja" role="dialog" aria-modal="true" aria-labelledby="hoja-titulo" hidden>
+  <div class="asa" aria-hidden="true"></div>
+  <div class="hoja-cab">
+    <div>
+      <h2 id="hoja-titulo">Nombre de la TV</h2>
+      <div class="hoja-sub" id="hoja-sub"></div>
+    </div>
+    <button class="texto-btn" type="button" data-hoja="cancelar">Cancelar</button>
+  </div>
+  <input type="text" id="hoja-nombre" maxlength="40" autocomplete="off" enterkeyhint="done" aria-label="Nombre">
+  <div class="sugerencias" id="sugerencias">
+    <button class="sugerencia" type="button">Sala</button>
+    <button class="sugerencia" type="button">Cuarto</button>
+    <button class="sugerencia" type="button">Comedor</button>
+    <button class="sugerencia" type="button">Oficina</button>
+  </div>
+  <button class="guardar" type="submit">Guardar</button>
+  <button class="texto-btn" type="button" data-hoja="fabrica" id="hoja-fabrica">Volver al nombre de fábrica</button>
+</form>
 
 <script>
 (function () {
@@ -198,7 +236,7 @@ details.log[open] summary::after { content: " ▴"; }
   var conectado = false;
   var sinAcceso = false;
   var editando = false;
-  var editandoTVs = false;
+  var hojaUdn = null;      // TV que se esta renombrando en la hoja
   var platForm = null;     // plataforma elegida para "Otro canal"
 
   // Logos chicos de cada plataforma, el unico toque de color del panel.
@@ -383,24 +421,13 @@ details.log[open] summary::after { content: " ▴"; }
     $("btn-ir").disabled = !!(s.arrancando || ARRANCANDO[s.fase]);
     $("btn-buscar").textContent = s.fase === "buscando" ? "Buscando…" : "Buscar";
 
-    var editarTvs = $("btn-editar-tvs");
-    editarTvs.hidden = !s.tvs.length;
-    editarTvs.textContent = editandoTVs ? "Listo" : "Editar";
-    $("ayuda-tv").hidden = !editandoTVs;
-    // No redibujar los campos mientras el usuario escribe un nombre.
-    var escribiendo = editandoTVs && $("tvs").contains(document.activeElement);
-    if (!escribiendo) poner("tvs", s.tvs.map(function (t) {
+    poner("tvs", s.tvs.map(function (t) {
       var detalle = t.alias ? esc(t.original) + " · " + esc(t.ip) : esc(t.ip);
-      if (editandoTVs) {
-        return '<form class="renombrar" data-udn="' + esc(t.udn) + '"><label class="campo">' +
-          '<input type="text" value="' + esc(t.alias || "") + '" placeholder="' + esc(t.original) + '" maxlength="40" ' +
-          'autocomplete="off" enterkeyhint="done" aria-label="Nombre para ' + esc(t.original) + '" data-guardado="' + esc(t.alias || "") + '">' +
-          '<small>' + detalle + '</small></label>' +
-          '<button class="ok" type="submit" aria-label="Guardar nombre"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></button></form>';
-      }
-      return '<button class="fila" type="button" data-tv="' + esc(t.udn) + '" aria-pressed="' + (t.udn === s.tv) + '">' +
+      return '<div class="fila-tv"><button class="tv-sel" type="button" data-tv="' + esc(t.udn) + '" aria-pressed="' + (t.udn === s.tv) + '">' +
         '<span class="n"><span>' + esc(t.nombre) + '<small>' + detalle + '</small></span></span>' +
-        '<span class="check" aria-hidden="true">' + (t.udn === s.tv ? "✓" : "") + '</span></button>';
+        '<span class="check" aria-hidden="true">' + (t.udn === s.tv ? "✓" : "") + '</span></button>' +
+        '<button class="lapiz" type="button" data-renombrar="' + esc(t.udn) + '" aria-label="Cambiar el nombre de ' + esc(t.nombre) + '">' +
+        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></button></div>';
     }).join(""));
     renderLog();
   }
@@ -413,12 +440,7 @@ details.log[open] summary::after { content: " ▴"; }
     if (accion === "buscar") return pedir("/api/buscar-tvs");
     if (accion === "guardar") return pedir("/api/favoritos", { canal: s.canal, plataforma: s.plataforma });
     if (accion === "editar") { editando = !editando; render(); return; }
-    if (accion === "editar-tvs") {
-      editandoTVs = !editandoTVs;
-      if (document.activeElement) document.activeElement.blur();
-      render();
-      return;
-    }
+    if (b.dataset.renombrar) return abrirHoja(b.dataset.renombrar);
     if (b.dataset.tv) return pedir("/api/tv", { udn: b.dataset.tv });
     if (b.dataset.fav) {
       var f = s.favoritos[+b.dataset.fav];
@@ -429,24 +451,62 @@ details.log[open] summary::after { content: " ▴"; }
     }
   });
 
-  $("tvs").addEventListener("submit", function (e) {
-    var form = e.target.closest(".renombrar");
-    if (!form) return;
-    e.preventDefault();
-    var entrada = form.querySelector("input");
-    pedir("/api/tv/nombre", { udn: form.dataset.udn, alias: entrada.value.trim() }).then(function (r) {
-      if (r && r.ok) {
-        entrada.dataset.guardado = entrada.value.trim();
-        form.querySelector(".ok").classList.remove("cambio");
-        entrada.blur();
-        render();
-      }
+  // ---------- hoja para renombrar una TV ----------
+  function abrirHoja(udn) {
+    var tv = s.tvs.filter(function (t) { return t.udn === udn; })[0];
+    if (!tv) return;
+    hojaUdn = udn;
+    $("hoja-sub").textContent = tv.original + " · " + tv.ip;
+    var entrada = $("hoja-nombre");
+    entrada.value = tv.alias || "";
+    entrada.placeholder = tv.original;
+    $("hoja-fabrica").hidden = !tv.alias;
+    marcarSugerencia();
+    $("velo").hidden = false;
+    $("hoja").hidden = false;
+    document.body.style.overflow = "hidden";
+    // Dentro del toque del usuario: asi el celular abre el teclado.
+    entrada.focus();
+  }
+  function cerrarHoja() {
+    hojaUdn = null;
+    $("hoja-nombre").blur();
+    $("velo").hidden = true;
+    $("hoja").hidden = true;
+    document.body.style.overflow = "";
+  }
+  function marcarSugerencia() {
+    var valor = $("hoja-nombre").value.trim().toLowerCase();
+    Array.prototype.forEach.call(document.querySelectorAll(".sugerencia"), function (b) {
+      b.classList.toggle("activa", b.textContent.toLowerCase() === valor);
     });
+  }
+  function guardarNombre(alias) {
+    var udn = hojaUdn;
+    if (!udn) return;
+    pedir("/api/tv/nombre", { udn: udn, alias: alias }).then(function (r) {
+      if (r && r.ok) cerrarHoja();
+    });
+  }
+  $("hoja").addEventListener("submit", function (e) {
+    e.preventDefault();
+    guardarNombre($("hoja-nombre").value.trim());
   });
-  // El boton de guardar se rellena cuando el nombre escrito es distinto del guardado.
-  $("tvs").addEventListener("input", function (e) {
-    var form = e.target.closest(".renombrar");
-    if (form) form.querySelector(".ok").classList.toggle("cambio", e.target.value.trim() !== e.target.dataset.guardado);
+  $("hoja").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    if (b.classList.contains("sugerencia")) {
+      $("hoja-nombre").value = b.textContent;
+      marcarSugerencia();
+      return;
+    }
+    if (b.dataset.hoja === "cancelar") return cerrarHoja();
+    if (b.dataset.hoja === "fabrica") return guardarNombre("");
+  });
+  $("hoja-nombre").addEventListener("input", marcarSugerencia);
+  $("velo").addEventListener("click", cerrarHoja);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && hojaUdn) cerrarHoja();
   });
   $("plat").addEventListener("change", function () { platForm = this.value; render(); });
   // La flecha aparece solo mientras hay algo escrito; Enter en el teclado tambien sirve.
