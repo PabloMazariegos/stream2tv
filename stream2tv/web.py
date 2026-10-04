@@ -165,9 +165,10 @@ class PanelWeb:
                     except queue.Full:
                         pass  # un celular colgado no debe frenar al resto
 
-                # Si el celular desaparece sin cerrar la conexion, un write
-                # bloqueado dejaria este thread colgado para siempre.
-                self.connection.settimeout(30)
+                # Sin settimeout en el socket a proposito: con timeout, Chrome no
+                # llega a abrir el EventSource y el panel queda "sin conexion".
+                # Un celular que desaparece igual se detecta: el latido escribe
+                # cada 15 s y esa escritura termina fallando.
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
                 self.send_header("Cache-Control", "no-store")
