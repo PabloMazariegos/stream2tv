@@ -245,13 +245,22 @@ def canal_en_vivo(url, calidad="best", timeout=40, backend="auto"):
 LINEAS_STDERR = 15
 
 
-def _juntar_stderr(proc, destino):
-    """Guarda las ultimas lineas de stderr del backend, para explicar un corte."""
+def _juntar_stderr(proc, destino, avisar=None):
+    """Guarda las ultimas lineas de stderr del backend, para explicar un corte.
+
+    Con avisar, ademas se pasa cada linea en vivo (ahi vienen los avisos de
+    anuncios filtrados de Twitch).
+    """
     try:
         for linea in iter(proc.stderr.readline, b""):
             texto = linea.decode(errors="replace").strip()
             if texto:
                 destino.append(texto)
+                if avisar is not None:
+                    try:
+                        avisar(texto)
+                    except Exception:
+                        pass
     except (OSError, ValueError):
         pass
 
@@ -277,8 +286,10 @@ class Servidor:
         backend="auto",
         host="0.0.0.0",
         cliente_permitido=None,
+        al_aviso=None,
     ):
         self.url = url
+        self.al_aviso = al_aviso
         self.puerto = puerto
         self.host = host
         self.cliente_permitido = cliente_permitido
@@ -351,7 +362,9 @@ class Servidor:
                     start_new_session=True,
                 )
                 errores = collections.deque(maxlen=LINEAS_STDERR)
-                threading.Thread(target=_juntar_stderr, args=(proc, errores), daemon=True).start()
+                threading.Thread(
+                    target=_juntar_stderr, args=(proc, errores, servidor.al_aviso), daemon=True
+                ).start()
                 with servidor._lock:
                     servidor._procesos.append(proc)
 

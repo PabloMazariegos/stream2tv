@@ -2,6 +2,7 @@
 
 import json
 import os
+import secrets
 import tempfile
 
 RUTA_CONFIG = os.path.join(
@@ -59,6 +60,25 @@ def limpiar_tv_por_defecto():
     datos = cargar()
     datos.pop("tv_por_defecto", None)
     guardar(datos)
+
+
+def token_web():
+    """Clave del panel web; se crea la primera vez. 128 bits al azar."""
+    datos = cargar()
+    token = datos.get("token_web")
+    if not token:
+        token = secrets.token_urlsafe(16)
+        datos["token_web"] = token
+        guardar(datos)
+    return token
+
+
+def regenerar_token_web():
+    """Clave nueva: los celulares autorizados con la anterior pierden el acceso."""
+    datos = cargar()
+    datos["token_web"] = secrets.token_urlsafe(16)
+    guardar(datos)
+    return datos["token_web"]
 
 
 def favoritos():

@@ -94,7 +94,7 @@ twitch2tv
 Se abre una app de terminal que queda viva:
 
 ```
-┌─ stream2tv ───────────────────────────────── v0.3.0 ── 09:09 ─┐
+┌─ stream2tv ───────────────────────────────── v0.4.0 ── 09:09 ─┐
 │ TVs en la red          │ Que ver                              │
 │                        │ ┌──────────────────────────────────┐ │
 │ [LG] webOS TV UP7710 * │ │ Twitch                         ▾ │ │
@@ -121,6 +121,7 @@ elegís plataforma y escribís el canal. `Enter` lo manda a la TV.
 | `Ctrl+R` | Volver a buscar TVs |
 | `Ctrl+D` | Guardar la TV seleccionada como predeterminada |
 | `Ctrl+F` | Marcar/desmarcar el canal como favorito |
+| `Ctrl+W` | Mostrar el QR del panel web para el celular |
 | `Ctrl+Q` | Salir (detiene el stream antes) |
 
 Los atajos usan `Ctrl` porque las letras sueltas se escribirían en el campo de canal.
@@ -128,6 +129,26 @@ Los atajos usan `Ctrl` porque las letras sueltas se escribirían en el campo de 
 Podés cambiar de canal sin detener a mano: escribís otro y `Enter`, y el anterior se
 corta solo. Cada 15 segundos se chequea la TV, así que si se detuvo sola lo ves en el
 panel de abajo.
+
+### Desde el celular: el panel web
+
+Mientras la TUI está abierta, también podés manejar todo desde el celular: elegir la
+TV, cambiar de canal, usar los favoritos y detener. Lo que hagas en el celular se ve
+al instante en la TUI, y al revés.
+
+1. Al arrancar, el log de la TUI muestra la dirección del panel, por ejemplo
+   `http://192.168.1.18:8091`.
+2. Apretá `Ctrl+W`: aparece un código QR. Escanealo con la cámara del celular.
+3. Listo. El celular queda autorizado por un año; después abrís la dirección y entra
+   directo. Desde el menú del navegador podés agregarlo a la pantalla de inicio.
+
+El QR lleva una clave: sin ella, alguien conectado a tu wifi no puede usar el panel.
+Si querés desautorizar a todos los celulares, apretá `n` en la pantalla del QR y
+volvé a escanear con los que sí querés.
+
+El panel solo funciona dentro de tu red de casa. Si el celular no llega a la
+dirección, revisá el firewall de la laptop (ver *Problemas frecuentes*). Para no
+abrirlo, arrancá con `--no-web`.
 
 ### Modo directo
 
@@ -185,7 +206,9 @@ vez de adivinar.
 
 | Flag | Para qué |
 |---|---|
-| `--port N` | Puerto HTTP local (default `8090`) |
+| `--port N` | Puerto HTTP local del video (default `8090`) |
+| `--web-port N` | Puerto del panel web para el celular (default `8091`) |
+| `--no-web` | No abrir el panel web junto con la TUI |
 | `--quality Q` | `best`, `1080p`, `720p`, `worst`… (default `best`) |
 | `--low-latency` | Baja latencia en Twitch. Con poca RAM en la TV puede bufferear |
 | `--no-check` | No verificar si el canal está en vivo antes de castear |
@@ -221,6 +244,18 @@ En orden de probabilidad:
    ```bash
    sudo ufw allow from 192.168.0.0/24 to any port 8090
    ```
+
+### El celular no abre el panel
+
+- El celular tiene que estar en el mismo wifi que la laptop. Los datos móviles no sirven.
+- Si la laptop usa `ufw`, puede estar bloqueando el puerto. Permití solo tu red de casa
+  (cambiá `192.168.1.0/24` por la tuya):
+
+  ```bash
+  sudo ufw allow from 192.168.1.0/24 to any port 8091 proto tcp
+  ```
+- Si dice *Este celular no tiene acceso*, volvé a escanear el QR (`Ctrl+W`). Pasa si
+  se renovó la clave o si borraste los datos del navegador.
 
 ### `Address already in use`
 

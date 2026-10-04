@@ -8,6 +8,7 @@ from . import __version__, caster, config, discovery
 from .plataformas import PLATAFORMAS, etiqueta, resolver_url  # noqa: F401  (reexport)
 
 PUERTO_DEFECTO = 8090
+PUERTO_WEB_DEFECTO = 8091
 # Cada cuanto se le pregunta a la TV si sigue reproduciendo.
 INTERVALO_MONITOR = 10
 # Lecturas STOPPED seguidas antes de dar el stream por terminado: una sola
@@ -201,6 +202,7 @@ def lanzar_tui(args, plataforma_default):
         calidad=args.quality,
         low_latency=args.low_latency,
         backend=args.backend,
+        puerto_web=None if args.no_web else args.web_port,
     )
 
 
@@ -227,6 +229,11 @@ def construir_parser(nombre_programa, plataforma_default):
         default="auto",
         help="quien baja el stream (auto: yt-dlp para YouTube, streamlink para el resto)",
     )
+    p.add_argument(
+        "--web-port", type=int, default=PUERTO_WEB_DEFECTO,
+        help=f"puerto del panel web para el celular (default {PUERTO_WEB_DEFECTO})",
+    )
+    p.add_argument("--no-web", action="store_true", help="no abrir el panel web junto con la TUI")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return p
 

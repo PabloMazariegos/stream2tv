@@ -51,7 +51,7 @@ $ twitch2tv
 ```
 
 ```
-┌─ stream2tv ───────────────────────────────── v0.3.0 ── 09:09 ─┐
+┌─ stream2tv ───────────────────────────────── v0.4.0 ── 09:09 ─┐
 │ TVs en la red          │ Que ver                              │
 │                        │ ┌──────────────────────────────────┐ │
 │ [LG] webOS TV UP7710 * │ │ Twitch                         ▾ │ │
@@ -83,11 +83,14 @@ Las TVs de la red aparecen a la izquierda (flechas para moverte), escribís el c
 | `Ctrl+R` | Volver a buscar TVs |
 | `Ctrl+D` | Guardar la TV seleccionada como predeterminada |
 | `Ctrl+F` | Marcar/desmarcar el canal como favorito |
+| `Ctrl+W` | Mostrar el QR del panel web para el celular |
 | `Ctrl+Q` | Salir (detiene el stream antes) |
 
 Los atajos usan `Ctrl` a propósito: con letras sueltas se escribirían dentro del campo de canal.
 
 Podés cambiar de canal sin detener a mano — escribís otro y `Enter`, y corta el anterior solo. Los favoritos se guardan y con `Enter` sobre uno arranca directo. Cada 15 segundos chequea la TV: si se detuvo sola, lo ves en pantalla.
+
+**Panel web para el celular.** Junto con la TUI arranca un panel en `http://<ip-de-la-laptop>:8091`. Con `Ctrl+W` aparece un QR: lo escaneás una vez y manejás todo desde el celular (TV, canal, favoritos, detener). El celular y la TUI muestran siempre lo mismo. Detalles en el [manual](docs/MANUAL.md).
 
 ### Modo pregunta-respuesta
 
@@ -159,7 +162,9 @@ Si el filtro `--tv` coincide con más de una TV, el comando falla y te muestra l
 
 | Flag | Para qué |
 |---|---|
-| `--port N` | Cambiar el puerto HTTP local (default `8090`) |
+| `--port N` | Cambiar el puerto HTTP local del video (default `8090`) |
+| `--web-port N` | Puerto del panel web (default `8091`) |
+| `--no-web` | No abrir el panel web |
 | `--quality Q` | Calidad de streamlink: `best`, `720p`, `worst`… (default `best`) |
 | `--low-latency` | Baja latencia en Twitch. Con poca RAM en la TV puede bufferear |
 | `--no-check` | No verificar si el canal está en vivo antes de castear |
@@ -173,8 +178,11 @@ stream2tv/
   discovery.py   SSDP, descubrimiento y selección de TV
   caster.py      servidor HTTP, pipe de streamlink y control DLNA
   config.py      TV predeterminada y favoritos
+  controlador.py estado y logica de reproduccion, compartidos por la TUI y la web
   cli.py         argumentos, modo directo y wizard
   tui.py         la app de terminal (Textual)
+  web.py         panel web para el celular (API + eventos en vivo)
+  web/           la pagina del panel, su manifest e iconos
 bin/             entry points: stream2tv, kick2tv, twitch2tv
 tests/           tests de selección, URLs y de la TUI
 ```

@@ -136,6 +136,18 @@ def ip_local_hacia(destino):
         s.close()
 
 
+def ip_lan():
+    """IP de esta maquina en la red de casa (la interfaz de la ruta por defecto).
+
+    Con UDP, connect no manda nada: solo le pregunta al kernel por donde saldria.
+    Sin red devuelve 127.0.0.1.
+    """
+    try:
+        return ip_local_hacia("192.0.2.1")
+    except OSError:
+        return "127.0.0.1"
+
+
 def elegir(tvs, filtro=None, udn_preferido=None, interactivo=None):
     """Decide con que TV quedarse.
 

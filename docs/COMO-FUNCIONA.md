@@ -281,8 +281,10 @@ todo pase lo que pase.
 | `caster.py` | Backends, servidor HTTP, pipe, control DLNA, limpieza |
 | `plataformas.py` | `canal` / `tw:canal` / URL → URL final |
 | `config.py` | TV predeterminada y favoritos en `~/.config/stream2tv/config.json` |
+| `controlador.py` | Estado y lógica de reproducción; la TUI y la web son vistas que le piden acciones |
 | `cli.py` | Argumentos, modo directo, wizard |
 | `tui.py` | App de terminal (Textual) |
+| `web.py` + `web/` | Panel web para el celular: página, API JSON y eventos en vivo (SSE) en `:8091` |
 | `pyproject.toml` | Dependencias y entry points; `twitch2tv` y `kick2tv` son `stream2tv` con plataforma fijada |
 | `bin/*` | Los mismos comandos, para correrlos desde el repo sin instalar |
 

@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1218">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icono-192.png">
+<link rel="apple-touch-icon" href="/icono-192.png">
+<title>stream2tv</title>
+<style>
+/* Oscuro como un control remoto: se usa desde el sillon con la luz apagada.
+   Sin fuentes externas: el panel tiene que andar aunque no haya internet. */
+:root {
+  color-scheme: dark;
+  --bg: #0f1218;
+  --surface: #181d26;
+  --raised: #212835;
+  --ink: #eef1f6;
+  --muted: #929bad;
+  --line: #2a3241;
+  --accent: #fbbf24;
+  --live: #f04452;
+  --ok: #4ade80;
+  --kick: #53fc18;
+  --twitch: #a970ff;
+  --youtube: #ff4e45;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", "Roboto Mono", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+/* Sin esto, una clase con display gana sobre el atributo hidden. */
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body {
+  font: 15px/1.45 var(--sans);
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+  -webkit-tap-highlight-color: transparent;
+}
+main { max-width: 520px; margin: 0 auto; display: grid; gap: 18px; }
+.sec-grid { display: grid; gap: 18px; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top { display: flex; justify-content: space-between; align-items: center; }
+.brand { font-weight: 800; font-size: 22px; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
+.bars { display: inline-grid; grid-template-columns: repeat(7, 4px); height: 12px; border-radius: 2px; overflow: hidden; }
+.bars i:nth-child(1){background:#c0c0c0}.bars i:nth-child(2){background:#c0c000}.bars i:nth-child(3){background:#00c0c0}.bars i:nth-child(4){background:#00c000}.bars i:nth-child(5){background:#c000c0}.bars i:nth-child(6){background:#c00000}.bars i:nth-child(7){background:#0000c0}
+.link { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.dot.off { background: var(--live); }
+
+.label { font: 500 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.sec { display: grid; gap: 10px; }
+
+.now { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 16px; display: grid; gap: 12px; }
+.now-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.now-head .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill { flex: 0 0 auto; font: 600 11px var(--mono); letter-spacing: .06em; padding: 4px 9px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; }
+.pill.live { background: rgba(240,68,82,.16); color: var(--live); }
+.pill.live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--live); animation: blink 1.2s infinite; }
+.pill.wait { background: rgba(251,191,36,.14); color: var(--accent); }
+.pill.idle { background: var(--raised); color: var(--muted); }
+.pill.err { background: rgba(240,68,82,.16); color: var(--live); }
+@keyframes blink { 50% { opacity: .25; } }
+.channel { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.channel b { font-weight: 800; font-size: 32px; line-height: 1.05; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.plat { font: 600 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 3px 7px; border-radius: 6px; border: 1px solid currentColor; white-space: nowrap; }
+.plat.kick { color: var(--kick); } .plat.twitch { color: var(--twitch); } .plat.youtube { color: var(--youtube); }
+.meta { font: 13px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.note { font-size: 13px; color: var(--muted); background: var(--raised); border-radius: 10px; padding: 8px 10px; }
+.note.err { color: #ffb3b9; background: rgba(240,68,82,.12); }
+.acciones { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.btn { font-weight: 600; font-size: 16px; border: 0; border-radius: 14px; padding: 13px 16px; }
+.btn-stop { background: var(--raised); border: 1px solid var(--line); }
+.btn-play { background: var(--accent); color: #1a1405; }
+.btn-play:disabled { opacity: .5; cursor: default; }
+.btn-fav { background: transparent; border: 1px solid var(--line); color: var(--accent); padding-inline: 14px; }
+
+.chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.chip { flex: 0 0 auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; display: grid; text-align: left; gap: 1px; font-size: 14px; font-weight: 500; }
+.chip small { font: 11px var(--mono); color: var(--muted); }
+.chip[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.chip.ghost { color: var(--muted); }
+
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 3px; }
+.seg button { background: transparent; color: var(--muted); border: 0; border-radius: 9px; padding: 8px 4px; font-size: 14px; font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--raised); color: var(--ink); }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+input[type="text"] { font-size: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; min-width: 0; width: 100%; }
+input::placeholder { color: var(--muted); }
+
+.favs { display: grid; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.fav-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-top: 1px solid var(--line); }
+.fav-row:first-child { border-top: 0; }
+.fav { display: flex; align-items: center; gap: 10px; background: transparent; border: 0; font-size: 15px; font-weight: 500; padding: 12px 14px; text-align: left; min-width: 0; }
+.fav .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fav[aria-current="true"] .n { color: var(--accent); }
+.star { background: transparent; border: 0; color: var(--accent); font-size: 18px; padding: 10px 14px; }
+.vacio { color: var(--muted); font-size: 14px; padding: 12px 14px; margin: 0; }
+
+details.log { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 4px 14px; }
+details.log summary { cursor: pointer; padding: 10px 0; font-size: 14px; color: var(--muted); list-style: none; display: flex; justify-content: space-between; }
+details.log summary::-webkit-details-marker { display: none; }
+details.log summary::after { content: "▾"; }
+details.log[open] summary::after { content: "▴"; }
+.log-lines { display: grid; gap: 6px; padding-bottom: 12px; font: 12px/1.45 var(--mono); color: var(--muted); }
+.log-lines b { font-weight: 400; color: var(--ink); }
+.log-lines .error b { color: #ffb3b9; }
+.log-lines .aviso b { color: var(--accent); }
+
+.empty { text-align: center; display: grid; gap: 12px; padding: 48px 10px; justify-items: center; }
+.empty h2 { margin: 0; font-size: 22px; }
+.empty p { margin: 0; color: var(--muted); font-size: 14px; max-width: 34ch; }
+
+.toast { position: fixed; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); max-width: 520px; margin: 0 auto; background: var(--raised); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+
+@media (prefers-reduced-motion: reduce) { .pill.live::before { animation: none; } }
+</style>
+</head>
+<body>
+<main id="app">
+  <div class="top">
+    <span class="brand"><span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>stream2tv</span>
+    <span class="link"><span class="dot off" id="dot"></span><span id="conexion">conectando…</span></span>
+  </div>
+  <div id="especial"><p class="meta">Conectando con la laptop…</p></div>
+  <div id="contenido" class="sec-grid" hidden>
+    <div id="ahora"></div>
+    <div class="sec"><span class="label">TV</span><div class="chips" id="chips"></div></div>
+    <form class="sec" id="form">
+      <span class="label">Ver otro canal</span>
+      <div class="seg" id="seg">
+        <button type="button" data-plat="kick" aria-pressed="true">Kick</button>
+        <button type="button" data-plat="twitch" aria-pressed="false">Twitch</button>
+        <button type="button" data-plat="youtube" aria-pressed="false">YouTube</button>
+      </div>
+      <div class="row">
+        <input type="text" id="canal" placeholder="canal o URL" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Canal">
+        <button class="btn btn-play" type="submit" id="btn-reproducir">Reproducir</button>
+      </div>
+    </form>
+    <div class="sec"><span class="label">Favoritos</span><div class="favs" id="favs"></div></div>
+    <details class="log"><summary>Actividad</summary><div class="log-lines" id="log-lines"></div></details>
+  </div>
+</main>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function () {
+  "use strict";
+  var NOMBRE_PLAT = { kick: "Kick", twitch: "Twitch", youtube: "YouTube" };
+  var ARRANCANDO = { verificando: 1, enviando: 1 };
+  var s = null;            // ultimo estado del Controlador
+  var log = [];
+  var conectado = false;
+  var sinAcceso = false;
+  var platForm = null;     // plataforma elegida en el formulario
+  var app = document.getElementById("app");
+
+  function esc(t) {
+    return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  var toastTimer = null;
+  function avisar(texto) {
+    var t = document.getElementById("toast");
+    t.textContent = texto;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, 3500);
+  }
+
+  function pedir(ruta, cuerpo) {
+    return fetch(ruta, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-Stream2tv": "1" },
+      body: JSON.stringify(cuerpo || {})
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (datos) {
+        if (r.status === 401) { sinAcceso = true; render(); }
+        else if (!r.ok) avisar(datos.error || "La laptop no pudo hacerlo.");
+        else if (datos.ok === false && datos.motivo) avisar(datos.motivo);
+        return datos;
+      });
+    }).catch(function () { avisar("No hay conexión con la laptop."); });
+  }
+
+  function tvNombre() {
+    if (!s || !s.tv) return "";
+    var tv = s.tvs.filter(function (t) { return t.udn === s.tv; })[0];
+    return tv ? tv.nombre : "";
+  }
+  function esFavorito(canal, plat) {
+    return s.favoritos.some(function (f) { return f.canal.toLowerCase() === String(canal).toLowerCase() && f.plataforma === plat; });
+  }
+  function minutos() {
+    if (!s.desde) return null;
+    return Math.max(0, Math.floor((Date.now() - new Date(s.desde).getTime()) / 60000));
+  }
+
+  function tarjetaAhora() {
+    var cab = '<div class="now-head"><span class="label">Ahora en ' + esc(tvNombre() || "ninguna TV") + '</span>';
+    if (s.fase === "libre" || s.fase === "buscando" || !s.canal) {
+      return '<div class="now">' + cab + '<span class="pill idle">' + (s.fase === "buscando" ? "BUSCANDO TVS" : "LIBRE") + '</span></div>' +
+        '<div class="meta">Nada reproduciéndose. Elegí un favorito o escribí un canal.</div></div>';
+    }
+    var pill;
+    if (s.fase === "reproduciendo") pill = '<span class="pill live">EN VIVO</span>';
+    else if (s.fase === "error") pill = '<span class="pill err">NO DISPONIBLE</span>';
+    else if (s.fase === "deteniendo") pill = '<span class="pill wait">DETENIENDO</span>';
+    else pill = '<span class="pill wait">' + (s.fase === "verificando" ? "VERIFICANDO" : "ENVIANDO A LA TV") + '</span>';
+
+    var meta = "";
+    if (s.fase === "reproduciendo") {
+      var m = minutos();
+      meta = m === null ? "" : (m === 0 ? "recién empezó" : "hace " + m + " min");
+    } else if (s.fase === "verificando") meta = "Consultando a " + (NOMBRE_PLAT[s.plataforma] || "el sitio") + "…";
+    else if (s.fase === "enviando") meta = "La TV está abriendo el video…";
+
+    var nota = "";
+    if (s.fase === "reproduciendo" && s.plataforma === "twitch") {
+      nota = '<div class="note">' + (s.anuncios ? "Anuncios filtrados: " + s.anuncios + ". " : "") +
+        "Durante una pausa de anuncios la imagen se congela y vuelve sola.</div>";
+    }
+    if (s.fase === "error") nota = '<div class="note err">' + esc(s.mensaje) + '</div>';
+
+    var botones = "";
+    if (s.fase !== "error") {
+      var textoStop = s.fase === "reproduciendo" ? "Detener" : "Cancelar";
+      var fav = s.fase === "reproduciendo" && !esFavorito(s.canal, s.plataforma)
+        ? '<button class="btn btn-fav" type="button" data-accion="guardar" aria-label="Guardar en favoritos">☆</button>' : "";
+      botones = fav ? '<div class="acciones"><button class="btn btn-stop" type="button" data-accion="detener">' + textoStop + '</button>' + fav + '</div>'
+                    : '<button class="btn btn-stop" type="button" data-accion="detener">' + textoStop + '</button>';
+    }
+    return '<div class="now">' + cab + pill + '</div>' +
+      '<div class="channel"><b>' + esc(s.canal) + '</b>' +
+      (s.plataforma ? '<span class="plat ' + esc(s.plataforma) + '">' + esc(NOMBRE_PLAT[s.plataforma] || s.plataforma) + '</span>' : "") + '</div>' +
+      (meta ? '<div class="meta">' + meta + '</div>' : "") + nota + botones + '</div>';
+  }
+
+  // Cada seccion se reescribe solo si su HTML cambio: el formulario nunca se
+  // toca, asi el teclado del celular no se cierra mientras escribis un canal.
+  var cache = {};
+  function poner(id, html) {
+    if (cache[id] === html) return;
+    cache[id] = html;
+    document.getElementById(id).innerHTML = html;
+  }
+
+  function renderConexion() {
+    document.getElementById("dot").className = "dot" + (conectado && !sinAcceso ? "" : " off");
+    document.getElementById("conexion").textContent = sinAcceso ? "sin acceso" : (conectado ? "laptop" : "sin conexión");
+  }
+
+  function renderLog() {
+    poner("log-lines", log.slice(-8).reverse().map(function (l) {
+      return '<div class="' + esc(l.nivel) + '">' + esc(l.hora) + ' <b>' + esc(l.texto) + '</b></div>';
+    }).join("") || "<div>Sin actividad todavía.</div>");
+  }
+
+  function vistaEspecial() {
+    if (sinAcceso) {
+      return '<div class="empty"><h2>Este celular no tiene acceso</h2>' +
+        '<p>Abrí stream2tv en la laptop, apretá Ctrl+W y escaneá el código QR con la cámara. Alcanza con hacerlo una vez.</p></div>';
+    }
+    if (!s) return '<p class="meta">Conectando con la laptop…</p>';
+    if (!s.tvs.length && s.fase !== "buscando" && !s.canal) {
+      return '<div class="empty"><h2>No encontré ninguna TV</h2>' +
+        '<p>Revisá que la TV esté prendida y en el mismo wifi. Si usás Kodi, abrilo antes de buscar.</p>' +
+        '<button class="btn btn-play" type="button" data-accion="buscar">Buscar de nuevo</button></div>';
+    }
+    return null;
+  }
+
+  function render() {
+    renderConexion();
+    var especial = vistaEspecial();
+    document.getElementById("contenido").hidden = especial !== null;
+    document.getElementById("especial").hidden = especial === null;
+    if (especial !== null) { poner("especial", especial); return; }
+
+    if (!platForm) platForm = s.plataforma || "kick";
+    poner("ahora", tarjetaAhora());
+    poner("chips", s.tvs.map(function (t) {
+      return '<button class="chip" type="button" data-tv="' + esc(t.udn) + '" aria-pressed="' + (t.udn === s.tv) + '">' +
+        esc(t.nombre) + '<small>' + esc(t.ip) + '</small></button>';
+    }).join("") + '<button class="chip ghost" type="button" data-accion="buscar">' +
+      (s.fase === "buscando" ? "Buscando…" : "Buscar TVs") + '<small>en la red</small></button>');
+
+    Array.prototype.forEach.call(document.querySelectorAll("#seg button"), function (b) {
+      b.setAttribute("aria-pressed", b.dataset.plat === platForm ? "true" : "false");
+    });
+    document.getElementById("btn-reproducir").disabled = !!(s.arrancando || ARRANCANDO[s.fase]);
+
+    poner("favs", s.favoritos.length ? s.favoritos.map(function (f, i) {
+      var actual = s.canal && f.canal.toLowerCase() === String(s.canal).toLowerCase() && f.plataforma === s.plataforma && s.fase !== "libre";
+      return '<div class="fav-row"><button class="fav" type="button" data-fav="' + i + '"' + (actual ? ' aria-current="true"' : "") + '>' +
+        '<span class="plat ' + esc(f.plataforma) + '">' + esc(NOMBRE_PLAT[f.plataforma] || f.plataforma) + '</span><span class="n">' + esc(f.canal) + '</span></button>' +
+        '<button class="star" type="button" data-quitar="' + i + '" aria-label="Quitar ' + esc(f.canal) + ' de favoritos">★</button></div>';
+    }).join("") : '<p class="vacio">Todavía no hay favoritos. Mientras mirás un canal, tocá ☆ para guardarlo.</p>');
+    renderLog();
+  }
+
+  app.addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b || !s) return;
+    var accion = b.dataset.accion;
+    if (accion === "detener") return pedir("/api/detener");
+    if (accion === "buscar") return pedir("/api/buscar-tvs");
+    if (accion === "guardar") return pedir("/api/favoritos", { canal: s.canal, plataforma: s.plataforma });
+    if (b.dataset.tv) return pedir("/api/tv", { udn: b.dataset.tv });
+    if (b.dataset.plat) { platForm = b.dataset.plat; render(); return; }
+    if (b.dataset.fav) {
+      var f = s.favoritos[+b.dataset.fav];
+      if (f) pedir("/api/reproducir", { canal: f.canal, plataforma: f.plataforma });
+      return;
+    }
+    if (b.dataset.quitar) {
+      var q = s.favoritos[+b.dataset.quitar];
+      if (q) pedir("/api/favoritos", { canal: q.canal, plataforma: q.plataforma });
+    }
+  });
+  app.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var entrada = document.getElementById("canal");
+    var canal = entrada.value.trim();
+    if (!canal) { entrada.focus(); return; }
+    pedir("/api/reproducir", { canal: canal, plataforma: platForm }).then(function (r) {
+      if (r && r.ok) { entrada.value = ""; entrada.blur(); }
+    });
+  });
+
+  function cargarEstado() {
+    return fetch("/api/estado", { credentials: "same-origin" }).then(function (r) {
+      if (r.status === 401) { sinAcceso = true; render(); return null; }
+      return r.json();
+    }).then(function (datos) {
+      if (!datos) return;
+      sinAcceso = false;
+      log = datos.log || [];
+      delete datos.log;
+      s = datos;
+      render();
+      escuchar();
+    }).catch(function () { conectado = false; renderConexion(); setTimeout(cargarEstado, 3000); });
+  }
+
+  var fuente = null;
+  function escuchar() {
+    if (fuente) return;
+    fuente = new EventSource("/api/eventos");
+    fuente.addEventListener("open", function () { conectado = true; renderConexion(); });
+    fuente.addEventListener("estado", function (e) { s = JSON.parse(e.data); conectado = true; render(); });
+    fuente.addEventListener("log", function (e) {
+      log.push(JSON.parse(e.data));
+      if (log.length > 50) log.shift();
+      if (s && !sinAcceso) renderLog();
+    });
+    fuente.addEventListener("error", function () {
+      // EventSource reintenta solo; mientras tanto se muestra el corte.
+      conectado = false;
+      renderConexion();
+    });
+  }
+
+  // El "hace N min" avanza aunque no lleguen eventos.
+  setInterval(function () { if (s && s.fase === "reproduciendo" && !sinAcceso) poner("ahora", tarjetaAhora()); }, 30000);
+  cargarEstado();
+})();
+</script>
+</body>
+</html>

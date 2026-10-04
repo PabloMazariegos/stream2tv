@@ -16,6 +16,7 @@ dependencies = [
     "yt-dlp>=2026.8.19",
     "textual>=8.2",
     "upnpclient>=2.0.3",
+    "segno>=1.6",
 ]
 
 [project.scripts]
@@ -25,6 +26,9 @@ twitch2tv = "stream2tv.cli:main_twitch"
 
 [tool.setuptools]
 packages = ["stream2tv"]
+
+[tool.setuptools.package-data]
+stream2tv = ["web/*"]
 
 [tool.setuptools.dynamic]
 version = { attr = "stream2tv.__version__" }

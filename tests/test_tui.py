@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from test_stream2tv import tv_falsa
 
-from stream2tv import caster, config, tui
+from stream2tv import caster, config, discovery, tui
 from textual.worker import WorkerCancelled
 
 
@@ -52,15 +52,15 @@ class BaseTUI(unittest.IsolatedAsyncioTestCase):
         self.config_tmp = os.path.join(os.path.dirname(__file__), "_config_test.json")
         self.patches = [
             mock.patch.object(config, "RUTA_CONFIG", self.config_tmp),
-            mock.patch.object(tui.discovery, "descubrir", return_value=self.tvs),
-            mock.patch.object(tui.caster, "canal_en_vivo", return_value=(True, "")),
-            mock.patch.object(tui.caster, "Servidor", ServidorFalso),
+            mock.patch.object(discovery, "descubrir", return_value=self.tvs),
+            mock.patch.object(caster, "canal_en_vivo", return_value=(True, "")),
+            mock.patch.object(caster, "Servidor", ServidorFalso),
             mock.patch.object(
-                tui.caster, "detener_tv", lambda tv, log=print: self.stops.append(tv.nombre) or True
+                caster, "detener_tv", lambda tv, log=print: self.stops.append(tv.nombre) or True
             ),
-            mock.patch.object(tui.discovery, "ip_local_hacia", return_value="192.168.0.2"),
+            mock.patch.object(discovery, "ip_local_hacia", return_value="192.168.0.2"),
             mock.patch.object(
-                tui.caster,
+                caster,
                 "reproducir",
                 lambda tv, url, titulo, log=print, **kw: self.reproducidos.append((tv.nombre, titulo)) or True,
             ),
@@ -134,10 +134,10 @@ class TestTUI(BaseTUI):
             def iniciar(self):
                 iniciados.append(self.url)
                 if len(iniciados) > 1 and not ServidorFalso.detenidos:
-                    raise tui.caster.PuertoOcupado("puerto ocupado")
+                    raise caster.PuertoOcupado("puerto ocupado")
 
-        with mock.patch.object(tui.caster, "canal_en_vivo", verificacion_lenta), \
-                mock.patch.object(tui.caster, "Servidor", ServidorContado):
+        with mock.patch.object(caster, "canal_en_vivo", verificacion_lenta), \
+                mock.patch.object(caster, "Servidor", ServidorContado):
             app = tui.StreamTVApp()
             async with app.run_test() as pilot:
                 await self._esperar(app, pilot)
@@ -158,7 +158,7 @@ class TestTUI(BaseTUI):
             liberar.wait(5)
             return True, ""
 
-        with mock.patch.object(tui.caster, "canal_en_vivo", verificacion_lenta):
+        with mock.patch.object(caster, "canal_en_vivo", verificacion_lenta):
             app = tui.StreamTVApp()
             async with app.run_test() as pilot:
                 await self._esperar(app, pilot)
@@ -180,7 +180,7 @@ class TestTUI(BaseTUI):
                 super().__init__(*a, **kw)
                 creados.append(self)
 
-        with mock.patch.object(tui.caster, "Servidor", ServidorAnotado):
+        with mock.patch.object(caster, "Servidor", ServidorAnotado):
             app = tui.StreamTVApp()
             async with app.run_test() as pilot:
                 await self._esperar(app, pilot)
@@ -197,7 +197,7 @@ class TestTUI(BaseTUI):
             await pilot.click("#canal")
             await pilot.press(*"lacobraaa", "enter")
             await self._esperar(app, pilot)
-            with mock.patch.object(tui.caster, "estado_tv", return_value="STOPPED"):
+            with mock.patch.object(caster, "estado_tv", return_value="STOPPED"):
                 app.verificar_estado()
                 await self._esperar(app, pilot)
             self.assertFalse(app.reproduciendo)
@@ -205,7 +205,7 @@ class TestTUI(BaseTUI):
             self.assertIsNone(app.servidor)
 
     async def test_canal_offline_no_deja_el_stream_colgado(self):
-        with mock.patch.object(tui.caster, "canal_en_vivo", return_value=(False, "offline")):
+        with mock.patch.object(caster, "canal_en_vivo", return_value=(False, "offline")):
             app = tui.StreamTVApp()
             async with app.run_test() as pilot:
                 await self._esperar(app, pilot)
@@ -220,7 +220,7 @@ class TestTUI(BaseTUI):
             def iniciar(self):
                 raise caster.PuertoOcupado("puerto 8090 ocupado")
 
-        with mock.patch.object(tui.caster, "Servidor", ServidorQueFalla):
+        with mock.patch.object(caster, "Servidor", ServidorQueFalla):
             app = tui.StreamTVApp()
             async with app.run_test() as pilot:
                 await self._esperar(app, pilot)
@@ -253,9 +253,12 @@ class TestTUI(BaseTUI):
             app.action_predeterminar()
             await self._esperar(app, pilot)
             self.assertEqual(config.tv_por_defecto()[0], "uuid:cc")
+            # Guardar la TV redibuja la lista; la elegida no debe saltar a la primera.
+            self.assertIs(app.tv_actual, self.tvs[1])
+            self.assertEqual(app.query_one("#lista-tvs").index, 1)
 
     async def test_sin_tvs_avisa_en_vez_de_romperse(self):
-        with mock.patch.object(tui.discovery, "descubrir", return_value=[]):
+        with mock.patch.object(discovery, "descubrir", return_value=[]):
             app = tui.StreamTVApp()
             async with app.run_test() as pilot:
                 await self._esperar(app, pilot)
@@ -289,6 +292,47 @@ class TestTUI(BaseTUI):
             await self._esperar(app, pilot)
             self.assertEqual(ServidorFalso.detenidos, ["https://kick.com/uno"])
             self.assertEqual(app.url_actual, "https://kick.com/dos")
+
+
+class PanelFalso:
+    def __init__(self):
+        self.iniciado = False
+        self.detenido = False
+        self.url = "http://192.168.1.18:8091/"
+        self.url_con_clave = self.url + "?t=clave"
+
+    def iniciar(self):
+        self.iniciado = True
+
+    def detener(self):
+        self.detenido = True
+
+
+class TestPanelEnLaTUI(BaseTUI):
+    async def test_sin_panel_ctrl_w_avisa(self):
+        app = tui.StreamTVApp()
+        async with app.run_test() as pilot:
+            await self._esperar(app, pilot)
+            await pilot.press("ctrl+w")
+            await pilot.pause()
+            self.assertNotIsInstance(app.screen, tui.PantallaQR)
+
+    async def test_con_panel_muestra_el_qr_y_lo_apaga_al_salir(self):
+        panel = PanelFalso()
+        app = tui.StreamTVApp(panel=panel)
+        async with app.run_test() as pilot:
+            await self._esperar(app, pilot)
+            self.assertTrue(panel.iniciado)
+            await pilot.press("ctrl+w")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui.PantallaQR)
+            self.assertIn("?t=clave", str(app.screen.query_one("#url-panel").render()))
+            await pilot.press("escape")
+            await pilot.pause()
+            self.assertNotIsInstance(app.screen, tui.PantallaQR)
+            app.action_salir()
+            await pilot.pause()
+        self.assertTrue(panel.detenido)
 
 
 class TestSalida(BaseTUI):

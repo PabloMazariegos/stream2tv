@@ -1,0 +1,13 @@
+{
+  "name": "stream2tv",
+  "short_name": "stream2tv",
+  "description": "Control remoto de stream2tv: elegí qué ver en la TV desde el celular.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1218",
+  "theme_color": "#0f1218",
+  "icons": [
+    { "src": "/icono-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

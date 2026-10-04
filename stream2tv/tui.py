@@ -1,14 +1,15 @@
 """Interfaz de terminal (TUI) que queda abierta: elegis TV, canal, y controlas el stream."""
 
+import io
 import threading
 from datetime import datetime
 
 from textual import on, work
-from textual.worker import get_current_worker
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
+from textual.screen import ModalScreen
 from textual.widgets import (
     Footer,
     Header,
@@ -21,10 +22,20 @@ from textual.widgets import (
     Static,
 )
 
-from . import __version__, caster, config, discovery
-from .plataformas import etiqueta, opciones_select, resolver_url
+from . import __version__, config
+from .controlador import Controlador
+from .plataformas import etiqueta, opciones_select
 
-url_de = resolver_url
+# Como se ve cada fase del Controlador en la barra de estado.
+CLASES_FASE = {
+    "reproduciendo": "reproduciendo",
+    "verificando": "trabajando",
+    "enviando": "trabajando",
+    "buscando": "trabajando",
+    "deteniendo": "trabajando",
+    "error": "error",
+}
+COLORES_LOG = {"info": "white", "ok": "green", "aviso": "yellow", "error": "red"}
 
 
 class ItemTV(ListItem):
@@ -41,6 +52,66 @@ class ItemFavorito(ListItem):
         super().__init__(Label(f"{canal}  ({etiqueta(plataforma)})"))
         self.canal = canal
         self.plataforma = plataforma
+
+
+def qr_texto(url):
+    """El QR en caracteres de bloque, o None si falta segno."""
+    try:
+        import segno
+    except ImportError:
+        return None
+    buffer = io.StringIO()
+    segno.make(url, error="m").terminal(out=buffer, compact=True)
+    return buffer.getvalue().rstrip("\n")
+
+
+class PantallaQR(ModalScreen):
+    """Muestra la direccion del panel con su QR para escanear desde el celular."""
+
+    BINDINGS = [
+        Binding("escape", "cerrar", "Cerrar"),
+        Binding("ctrl+w", "cerrar", "Cerrar", show=False),
+        Binding("n", "regenerar", "Clave nueva"),
+    ]
+    DEFAULT_CSS = """
+    PantallaQR { align: center middle; }
+    #caja-qr { width: auto; height: auto; max-width: 100%; border: round $accent; padding: 1 2; background: $surface; }
+    #qr { width: auto; height: auto; }
+    .ayuda { color: $text-muted; padding-top: 1; }
+    """
+
+    def __init__(self, panel):
+        super().__init__()
+        self.panel = panel
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="caja-qr"):
+            yield Static("Escanealo con la camara del celular", classes="titulo")
+            yield Static("", id="qr")
+            yield Static("", id="url-panel")
+            yield Static(
+                "Una sola vez por celular. [b]n[/b]: clave nueva (desautoriza a todos). [b]Esc[/b]: cerrar.",
+                classes="ayuda",
+            )
+
+    def on_mount(self):
+        self._dibujar()
+
+    def _dibujar(self):
+        url = self.panel.url_con_clave
+        qr = qr_texto(url)
+        self.query_one("#qr", Static).update(
+            qr if qr is not None else "(Para ver el QR instala segno: pip install segno)"
+        )
+        self.query_one("#url-panel", Static).update(url)
+
+    def action_regenerar(self):
+        config.regenerar_token_web()
+        self._dibujar()
+        self.app.log_ui("Clave del panel renovada: los celulares autorizados antes pierden el acceso.", "yellow")
+
+    def action_cerrar(self):
+        self.app.pop_screen()
 
 
 class StreamTVApp(App):
@@ -71,6 +142,7 @@ class StreamTVApp(App):
         Binding("ctrl+r", "refrescar", "Refrescar TVs", priority=True),
         Binding("ctrl+d", "predeterminar", "TV por defecto", priority=True),
         Binding("ctrl+f", "favorito", "Favorito", priority=True),
+        Binding("ctrl+w", "panel", "Panel web", priority=True),
         Binding("ctrl+q", "salir", "Salir", priority=True),
     ]
 
@@ -83,27 +155,40 @@ class StreamTVApp(App):
         calidad="best",
         low_latency=False,
         backend="auto",
+        controlador=None,
+        panel=None,
     ):
         super().__init__()
         self.plataforma = plataforma_inicial
-        self.puerto = puerto
-        self.calidad = calidad
-        self.low_latency = low_latency
-        self.backend = backend
-        self.tv_actual = None
-        self.servidor = None
-        self.url_actual = None
-        self.reproduciendo = False
-        # Queda en True desde que se le manda algo a la TV hasta que un Stop
-        # termina de verdad. Sin esto, apretar Detener y salir enseguida dejaba
-        # la TV reproduciendo: el worker del stop se cancelaba a mitad.
-        self._tv_tocada = False
-        # Los workers en thread no se pueden matar: "exclusive" solo los marca
-        # como cancelados. Sin este lock, apretar Reproducir dos veces mientras
-        # el sitio tarda en responder deja dos arranques en paralelo peleando
-        # por el puerto.
-        self._lock_stream = threading.Lock()
-        self.udn_defecto, _ = config.tv_por_defecto()
+        # La TUI es solo una vista: el estado y la logica viven en el
+        # Controlador, que puede estar compartido con el panel web.
+        self.ctrl = controlador or Controlador(puerto, calidad, low_latency, backend)
+        self.panel = panel
+        self._panel_activo = False
+        self._hilo_ui = None
+        self._firma_tvs = None
+        self._firma_favs = None
+
+    # El estado vive en el Controlador; estas propiedades lo exponen tal cual.
+    @property
+    def tv_actual(self):
+        return self.ctrl.tv_actual
+
+    @tv_actual.setter
+    def tv_actual(self, tv):
+        self.ctrl.elegir_tv(tv)
+
+    @property
+    def servidor(self):
+        return self.ctrl.servidor
+
+    @property
+    def url_actual(self):
+        return self.ctrl.url_actual
+
+    @property
+    def reproduciendo(self):
+        return self.ctrl.reproduciendo
 
     # ---------- layout ----------
 
@@ -126,22 +211,66 @@ class StreamTVApp(App):
         yield Footer()
 
     def on_mount(self):
+        self._hilo_ui = threading.get_ident()
+        self.ctrl.suscribir(self._evento)
         self.query_one("#canal", Input).focus()
         self.cargar_favoritos()
         self.log_ui("Bienvenido. Buscando TVs en la red...")
+        self._iniciar_panel()
         self.refrescar_tvs()
         # Chequeo periodico: si la TV deja de reproducir sola, que se note en pantalla.
         self.set_interval(15, self.verificar_estado)
 
+    def on_unmount(self):
+        self.ctrl.desuscribir(self._evento)
+
+    def _iniciar_panel(self):
+        if self.panel is None:
+            return
+        # Import tardio: web importa config y discovery, que la TUI no necesita sin panel.
+        from .web import PanelOcupado
+
+        try:
+            self.panel.iniciar()
+        except PanelOcupado as e:
+            self.log_ui(str(e), "red")
+            return
+        self._panel_activo = True
+        self.log_ui(f"Panel web en {self.panel.url}  (Ctrl+W muestra el QR para el celular)", "cyan")
+
+    def action_panel(self):
+        if not self._panel_activo:
+            self.log_ui("El panel web esta apagado (se inicio con --no-web o su puerto estaba ocupado).", "yellow")
+            return
+        self.push_screen(PantallaQR(self.panel))
+
+    # ---------- eventos del controlador ----------
+
+    def _evento(self, evento, datos):
+        """Llega desde cualquier thread; la UI solo se toca desde el suyo."""
+        if threading.get_ident() == self._hilo_ui:
+            self._aplicar(evento, datos)
+            return
+        try:
+            self.call_from_thread(self._aplicar, evento, datos)
+        except RuntimeError:
+            # La app ya cerro: no hay nada que redibujar.
+            pass
+
+    def _aplicar(self, evento, datos):
+        if evento == "log":
+            color = COLORES_LOG.get(datos["nivel"], "white")
+            self.log_ui(datos["texto"], color, hora=datos["hora"])
+        elif evento == "estado":
+            self.marcar_estado(datos["mensaje"], CLASES_FASE.get(datos["fase"], ""))
+            self._sincronizar_tvs()
+            self._sincronizar_favoritos()
+
     # ---------- helpers de UI ----------
 
-    def log_ui(self, mensaje, color="white"):
-        hora = datetime.now().strftime("%H:%M:%S")
+    def log_ui(self, mensaje, color="white", hora=None):
+        hora = hora or datetime.now().strftime("%H:%M:%S")
         self.query_one("#log", RichLog).write(f"[dim]{hora}[/dim] [{color}]{mensaje}[/{color}]")
-
-    def log_desde_hilo(self, mensaje):
-        """Los workers en thread no pueden tocar la UI directo."""
-        self.call_from_thread(self.log_ui, mensaje)
 
     def watch_estado(self, valor):
         try:
@@ -158,8 +287,35 @@ class StreamTVApp(App):
     def cargar_favoritos(self):
         lista = self.query_one("#lista-favoritos", ListView)
         lista.clear()
-        for fav in config.favoritos():
+        favs = self.ctrl.favoritos()
+        for fav in favs:
             lista.append(ItemFavorito(fav["canal"], fav["plataforma"]))
+        self._firma_favs = tuple((f["canal"], f["plataforma"]) for f in favs)
+
+    def _sincronizar_favoritos(self):
+        firma = tuple((f["canal"], f["plataforma"]) for f in self.ctrl.favoritos())
+        if firma != self._firma_favs:
+            self.cargar_favoritos()
+
+    def _sincronizar_tvs(self):
+        """Redibuja la lista de TVs solo si cambio, y sigue a la TV elegida."""
+        ctrl = self.ctrl
+        lista = self.query_one("#lista-tvs", ListView)
+        firma = (tuple(tv.udn for tv in ctrl.tvs), ctrl.udn_defecto)
+        # Los Highlighted que genera el propio redibujado no son elecciones del
+        # usuario: si llegaran, la TV elegida saltaria a la primera de la lista.
+        with lista.prevent(ListView.Highlighted):
+            if firma != self._firma_tvs:
+                self._firma_tvs = firma
+                lista.clear()
+                for tv in ctrl.tvs:
+                    lista.append(ItemTV(tv, tv.udn == ctrl.udn_defecto))
+            if ctrl.tv_actual is not None:
+                indice = next(
+                    (i for i, tv in enumerate(ctrl.tvs) if tv.udn == ctrl.tv_actual.udn), None
+                )
+                if indice is not None and lista.index != indice:
+                    lista.index = indice
 
     # ---------- descubrimiento ----------
 
@@ -168,31 +324,13 @@ class StreamTVApp(App):
 
     @work(thread=True, exclusive=True, group="descubrir")
     def refrescar_tvs(self):
-        self.call_from_thread(self.marcar_estado, "Buscando TVs...", "trabajando")
-        tvs = discovery.descubrir()
-        self.call_from_thread(self.mostrar_tvs, tvs)
-
-    def mostrar_tvs(self, tvs):
-        lista = self.query_one("#lista-tvs", ListView)
-        lista.clear()
-        if not tvs:
-            self.marcar_estado("No se encontro ninguna TV. Prendela y apreta 'r'.", "error")
-            self.log_ui("Sin TVs. Revisa que este encendida y en la misma red.", "red")
-            return
-        for tv in tvs:
-            lista.append(ItemTV(tv, tv.udn == self.udn_defecto))
-        indice = next((i for i, tv in enumerate(tvs) if tv.udn == self.udn_defecto), 0)
-        lista.index = indice
-        self.tv_actual = tvs[indice]
-        self.log_ui(f"{len(tvs)} TV(s) encontrada(s).", "green")
-        self.marcar_estado(f"Listo. TV: {self.tv_actual.nombre}")
+        self.ctrl.buscar_tvs()
 
     @on(ListView.Highlighted, "#lista-tvs")
     def cambiar_tv(self, evento):
         if isinstance(evento.item, ItemTV):
-            self.tv_actual = evento.item.tv
-            if not self.reproduciendo:
-                self.marcar_estado(f"Listo. TV: {self.tv_actual.nombre}")
+            if self.ctrl.tv_actual is None or evento.item.tv.udn != self.ctrl.tv_actual.udn:
+                self.ctrl.elegir_tv(evento.item.tv)
 
     # ---------- seleccion ----------
 
@@ -221,17 +359,10 @@ class StreamTVApp(App):
         if not canal:
             self.log_ui("Escribi un canal para marcarlo como favorito.", "yellow")
             return
-        agregado = config.alternar_favorito(canal, self.plataforma)
-        self.cargar_favoritos()
-        self.log_ui(f"{'Agregado a' if agregado else 'Quitado de'} favoritos: {canal}", "cyan")
+        self.ctrl.alternar_favorito(canal, self.plataforma)
 
     def action_predeterminar(self):
-        if self.tv_actual is None:
-            return
-        config.set_tv_por_defecto(self.tv_actual.udn, self.tv_actual.nombre)
-        self.udn_defecto = self.tv_actual.udn
-        self.log_ui(f"'{self.tv_actual.nombre}' guardada como TV por defecto.", "cyan")
-        self.refrescar_tvs()
+        self.ctrl.predeterminar()
 
     # ---------- reproduccion ----------
 
@@ -240,172 +371,37 @@ class StreamTVApp(App):
         if not canal:
             self.log_ui("Escribi un canal primero.", "yellow")
             return
-        if self.tv_actual is None:
+        if self.ctrl.tv_actual is None:
             self.log_ui("No hay TV seleccionada.", "red")
             return
-        self.iniciar_stream(canal, self.plataforma)
+        self.iniciar_stream(canal, self.plataforma, self.ctrl.reservar())
 
-    def _detener_actual(self):
-        """Corta el stream en curso. Sincrono: se llama desde workers en thread.
-
-        No es un worker aparte a proposito: encadenar dos workers del mismo grupo
-        exclusivo hace que el segundo cancele al primero a mitad del stop.
-        """
-        if self.tv_actual is not None:
-            caster.detener_tv(self.tv_actual, log=self.log_desde_hilo)
-        if self.servidor is not None:
-            self.servidor.detener()
-            self.servidor = None
-        self.reproduciendo = False
-        self.url_actual = None
-        self._tv_tocada = False
-
-    @work(thread=True, exclusive=True, group="stream")
-    def iniciar_stream(self, canal, plataforma):
-        with self._lock_stream:
-            self._iniciar_stream(canal, plataforma)
-
-    def _iniciar_stream(self, canal, plataforma):
-        url = url_de(canal, plataforma)
-        tv = self.tv_actual
-        worker = get_current_worker()
-
-        if worker.is_cancelled:
-            return
-
-        if self.reproduciendo or self.servidor is not None:
-            self.log_desde_hilo("Ya habia un stream activo, lo detengo primero.")
-            self.call_from_thread(self.marcar_estado, "Cambiando de canal...", "trabajando")
-            self._detener_actual()
-
-        self.call_from_thread(self.marcar_estado, f"Verificando {canal}...", "trabajando")
-        vivo, motivo = caster.canal_en_vivo(url, self.calidad, backend=self.backend)
-        if not vivo:
-            self.call_from_thread(self.marcar_estado, f"{canal} no esta en vivo", "error")
-            self.log_desde_hilo(f"No hay stream: {motivo}")
-            return
-        if worker.is_cancelled:
-            # Mientras se verificaba, se pidio otro canal: que arranque ese.
-            return
-
-        try:
-            mi_ip = discovery.ip_local_hacia(tv.host)
-        except OSError as e:
-            self.call_from_thread(self.marcar_estado, "No se llega a la TV", "error")
-            self.log_desde_hilo(f"Error: {e}")
-            return
-
-        servidor = caster.Servidor(
-            url,
-            self.puerto,
-            self.calidad,
-            self.low_latency,
-            log=self.log_desde_hilo,
-            backend=self.backend,
-            host=mi_ip,
-            cliente_permitido=tv.host,
-        )
-        try:
-            servidor.iniciar()
-        except caster.PuertoOcupado as e:
-            self.call_from_thread(self.marcar_estado, "Puerto ocupado", "error")
-            self.log_desde_hilo(str(e))
-            return
-
-        self.servidor = servidor
-        self._tv_tocada = True
-        try:
-            stream_url = f"http://{mi_ip}:{self.puerto}{caster.RUTA_STREAM}"
-            self.call_from_thread(self.marcar_estado, f"Enviando {canal} a la TV...", "trabajando")
-            arranco = caster.reproducir(tv, stream_url, f"{canal}", log=self.log_desde_hilo)
-        except Exception as e:
-            servidor.detener()
-            self.servidor = None
-            self.call_from_thread(self.marcar_estado, "Error hablando con la TV", "error")
-            self.log_desde_hilo(f"Error: {e}")
-            return
-
-        self.reproduciendo = True
-        self.url_actual = url
-        if arranco:
-            self.call_from_thread(
-                self.marcar_estado, f"Reproduciendo {canal} en {tv.nombre}", "reproduciendo"
-            )
-            self.log_desde_hilo(f"Reproduciendo {url}")
-        else:
-            self.call_from_thread(
-                self.marcar_estado, f"{canal}: la TV no confirmo, puede arrancar sola", "trabajando"
-            )
-
-    def _arrancando(self):
-        return any(w.group == "stream" and w.is_running for w in self.workers)
+    @work(thread=True, group="stream")
+    def iniciar_stream(self, canal, plataforma, reserva):
+        # El Controlador serializa los arranques y descarta los reemplazados.
+        self.ctrl.reproducir(canal, plataforma, reserva)
 
     def action_detener(self):
-        if self._arrancando():
-            # El arranque en curso ve la cancelacion despues de verificar el
-            # canal y no llega a mandarle nada a la TV.
-            self.workers.cancel_group(self, "stream")
-            self.log_ui("Se cancela el arranque en curso.", "yellow")
-        elif not self.reproduciendo:
-            self.log_ui("No hay nada reproduciendose.", "yellow")
-            return
-        self.detener_stream()
+        if self.ctrl.anunciar_detencion():
+            self.detener_stream()
 
     @work(thread=True, group="stop")
     def detener_stream(self):
-        self.call_from_thread(self.marcar_estado, "Deteniendo...", "trabajando")
-        with self._lock_stream:
-            self._detener_actual()
-        self.log_desde_hilo("Stream detenido.")
-        self.call_from_thread(self.marcar_estado, "Detenido.")
+        self.ctrl.detener(anunciado=True)
 
     @work(thread=True, group="monitor", exclusive=True)
     def verificar_estado(self):
         """Si la TV se detuvo por su cuenta, reflejarlo en pantalla."""
-        if not self.reproduciendo or self.tv_actual is None:
-            return
-        # Si hay un arranque o un stop en curso, esta pasada no aplica.
-        if not self._lock_stream.acquire(blocking=False):
-            return
-        try:
-            if not self.reproduciendo:
-                return
-            estado = caster.estado_tv(self.tv_actual)
-            if estado != "STOPPED":
-                return
-            self.reproduciendo = False
-            self.url_actual = None
-            # La TV ya esta parada: no hace falta mandarle Stop al salir.
-            self._tv_tocada = False
-            if self.servidor is not None:
-                self.servidor.detener()
-                self.servidor = None
-        finally:
-            self._lock_stream.release()
-        self.call_from_thread(self.marcar_estado, "La TV detuvo la reproduccion.", "error")
-        self.log_desde_hilo("La TV paso a STOPPED (se corto el stream o alguien la paro).")
+        self.ctrl.verificar_estado()
 
     # ---------- salida ----------
 
     def limpiar(self):
-        """Deja todo apagado. Idempotente, y se llama salga por donde salga.
-
-        Va sincrono a proposito: si esto viviera en un worker, al salir Textual
-        lo cancelaria a mitad y quedaria el stream corriendo.
-        """
-        if self._tv_tocada and self.tv_actual is not None:
-            try:
-                caster.detener_tv(self.tv_actual, log=lambda *_: None)
-            except Exception:
-                pass
-            self._tv_tocada = False
-        if self.servidor is not None:
-            self.servidor.detener()
-            self.servidor = None
-        # Por si quedo algun servidor sin referencia (ej. un cambio de canal
-        # interrumpido justo antes de salir).
-        caster.apagar_todo()
-        self.reproduciendo = False
+        """Deja todo apagado. Va sincrono a proposito: un worker se cancelaria al salir."""
+        if self._panel_activo:
+            self.panel.detener()
+            self._panel_activo = False
+        self.ctrl.limpiar()
 
     def action_salir(self):
         self.limpiar()
@@ -413,9 +409,21 @@ class StreamTVApp(App):
 
 
 def lanzar(
-    plataforma_inicial="kick", puerto=8090, calidad="best", low_latency=False, backend="auto"
+    plataforma_inicial="kick",
+    puerto=8090,
+    calidad="best",
+    low_latency=False,
+    backend="auto",
+    puerto_web=None,
 ):
-    app = StreamTVApp(plataforma_inicial, puerto, calidad, low_latency, backend)
+    """Abre la TUI. Con puerto_web, tambien el panel para el celular."""
+    ctrl = Controlador(puerto, calidad, low_latency, backend)
+    panel = None
+    if puerto_web:
+        from .web import PanelWeb
+
+        panel = PanelWeb(ctrl, puerto_web)
+    app = StreamTVApp(plataforma_inicial, controlador=ctrl, panel=panel)
     try:
         app.run()
     finally:
