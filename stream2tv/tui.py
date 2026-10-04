@@ -22,7 +22,9 @@ from textual.widgets import (
     Static,
 )
 
-from . import __version__, config
+from textual.markup import escape
+
+from . import __version__, config, envivo
 from .controlador import Controlador
 from .plataformas import etiqueta, opciones_select
 
@@ -48,8 +50,18 @@ class ItemTV(ListItem):
 
 
 class ItemFavorito(ListItem):
-    def __init__(self, canal, plataforma):
-        super().__init__(Label(f"{canal}  ({etiqueta(plataforma)})"))
+    def __init__(self, canal, plataforma, estado=None):
+        nombre = escape(canal)
+        sitio = etiqueta(plataforma)
+        if estado and estado["vivo"]:
+            espectadores = envivo.espectadores_corto(estado.get("espectadores"))
+            texto = f"[red]●[/red] {nombre}  [dim]({sitio}){' · ' + espectadores if espectadores else ''}[/dim]"
+        elif estado:
+            texto = f"[dim]{nombre}  ({sitio})[/dim]"
+        else:
+            # Sin dato (todavia no se consulto, o fallo la red): ni vivo ni gris.
+            texto = f"{nombre}  ({sitio})"
+        super().__init__(Label(texto))
         self.canal = canal
         self.plataforma = plataforma
 
@@ -157,9 +169,12 @@ class StreamTVApp(App):
         backend="auto",
         controlador=None,
         panel=None,
+        sondear_en_vivo=False,
     ):
         super().__init__()
         self.plataforma = plataforma_inicial
+        # Solo la app real consulta a las plataformas; los tests no salen a internet.
+        self.sondear_en_vivo = sondear_en_vivo
         # La TUI es solo una vista: el estado y la logica viven en el
         # Controlador, que puede estar compartido con el panel web.
         self.ctrl = controlador or Controlador(puerto, calidad, low_latency, backend)
@@ -217,6 +232,8 @@ class StreamTVApp(App):
         self.cargar_favoritos()
         self.log_ui("Bienvenido. Buscando TVs en la red...")
         self._iniciar_panel()
+        if self.sondear_en_vivo:
+            self.ctrl.iniciar_sondeo()
         self.refrescar_tvs()
         # Chequeo periodico: si la TV deja de reproducir sola, que se note en pantalla.
         self.set_interval(15, self.verificar_estado)
@@ -284,17 +301,26 @@ class StreamTVApp(App):
         widget = self.query_one("#estado", Static)
         widget.set_classes(clase)
 
+    def _favoritos_ordenados(self):
+        return envivo.ordenar(self.ctrl.favoritos(), self.ctrl.en_vivo)
+
+    @staticmethod
+    def _firma_de(pares):
+        return tuple(
+            (f["canal"], f["plataforma"], e and e["vivo"], e and e.get("espectadores"))
+            for f, e in pares
+        )
+
     def cargar_favoritos(self):
         lista = self.query_one("#lista-favoritos", ListView)
         lista.clear()
-        favs = self.ctrl.favoritos()
-        for fav in favs:
-            lista.append(ItemFavorito(fav["canal"], fav["plataforma"]))
-        self._firma_favs = tuple((f["canal"], f["plataforma"]) for f in favs)
+        pares = self._favoritos_ordenados()
+        for fav, estado in pares:
+            lista.append(ItemFavorito(fav["canal"], fav["plataforma"], estado))
+        self._firma_favs = self._firma_de(pares)
 
     def _sincronizar_favoritos(self):
-        firma = tuple((f["canal"], f["plataforma"]) for f in self.ctrl.favoritos())
-        if firma != self._firma_favs:
+        if self._firma_de(self._favoritos_ordenados()) != self._firma_favs:
             self.cargar_favoritos()
 
     def _sincronizar_tvs(self):
@@ -423,7 +449,7 @@ def lanzar(
         from .web import PanelWeb
 
         panel = PanelWeb(ctrl, puerto_web)
-    app = StreamTVApp(plataforma_inicial, controlador=ctrl, panel=panel)
+    app = StreamTVApp(plataforma_inicial, controlador=ctrl, panel=panel, sondear_en_vivo=True)
     try:
         app.run()
     finally:

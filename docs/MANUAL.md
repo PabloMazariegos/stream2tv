@@ -94,7 +94,7 @@ twitch2tv
 Se abre una app de terminal que queda viva:
 
 ```
-┌─ stream2tv ───────────────────────────────── v0.4.0 ── 09:09 ─┐
+┌─ stream2tv ───────────────────────────────── v0.5.0 ── 09:09 ─┐
 │ TVs en la red          │ Que ver                              │
 │                        │ ┌──────────────────────────────────┐ │
 │ [LG] webOS TV UP7710 * │ │ Twitch                         ▾ │ │
@@ -141,6 +141,11 @@ al instante en la TUI, y al revés.
 2. Apretá `Ctrl+W`: aparece un código QR. Escanealo con la cámara del celular.
 3. Listo. El celular queda autorizado por un año; después abrís la dirección y entra
    directo. Desde el menú del navegador podés agregarlo a la pantalla de inicio.
+
+En "Qué ver" los favoritos que están transmitiendo aparecen arriba, con el juego, el
+título del stream y los espectadores; los que no, abajo en gris. Se consulta a Twitch,
+Kick y YouTube cada 90 segundos mientras stream2tv está abierto (la TUI también marca
+con ● a los que están en vivo).
 
 El QR lleva una clave: sin ella, alguien conectado a tu wifi no puede usar el panel.
 Si querés desautorizar a todos los celulares, apretá `n` en la pantalla del QR y

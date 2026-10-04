@@ -17,6 +17,7 @@
   --bg: #0c0c0e;
   --ink: #f4f4f5;
   --muted: #8e8e98;
+  --tenue: #66666f;
   --line: #222226;
   --borde: #2a2a30;
   --campo: #18181b;
@@ -76,8 +77,15 @@ svg { display: block; flex: 0 0 auto; }
 .n { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .n span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .n small { display: block; font-size: 11px; color: var(--muted); }
-.en-tv { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--vivo); }
-.en-tv i { width: 6px; height: 6px; border-radius: 50%; background: var(--vivo); }
+.en-tv, .vivos { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--vivo); white-space: nowrap; }
+.en-tv i, .vivos i { width: 6px; height: 6px; border-radius: 50%; background: var(--vivo); flex: 0 0 auto; }
+.vivos { color: var(--muted); font-variant-numeric: tabular-nums; }
+.fila.con-titulo { min-height: 54px; }
+/* De que se trata el stream: tenue, para que mande el nombre del canal. */
+.n .tit { display: block; margin-top: 1px; font-size: 11px; line-height: 1.3; color: var(--tenue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fila.off .n { color: var(--muted); }
+.fila.off svg { opacity: .45; }
+.offline { font-size: 12px; color: var(--muted); }
 .quitar { font-size: 13px; color: var(--vivo); }
 .check { font-size: 15px; }
 
@@ -223,6 +231,28 @@ details.log[open] summary::after { content: " ▴"; }
     return tv ? tv.nombre : "";
   }
   function mismoCanal(a, b) { return String(a).toLowerCase() === String(b).toLowerCase(); }
+  // Un favorito guardado como link se muestra con el nombre del canal.
+  function nombreVisible(canal) {
+    var m = /^https?:\/\/(?:www\.|m\.)?(?:twitch\.tv|kick\.com)\/([^\/?#]+)\/?$/i.exec(canal) ||
+      /^https?:\/\/(?:www\.|m\.)?youtube\.com\/@([^\/?#]+)(?:\/live)?\/?$/i.exec(canal);
+    return m ? m[1] : canal;
+  }
+  function claveVivo(f) { return f.plataforma + ":" + String(f.canal).trim().toLowerCase(); }
+  // 235411 -> "235 mil", 11437 -> "11,4 mil": igual que en la TUI.
+  function espectadores(n) {
+    if (n == null) return "";
+    if (n < 1000) return String(n);
+    if (n < 100000) return (n / 1000).toFixed(1).replace(/\.0$/, "").replace(".", ",") + " mil";
+    if (n < 1000000) return Math.floor(n / 1000) + " mil";
+    return (n / 1000000).toFixed(1).replace(/\.0$/, "").replace(".", ",") + " M";
+  }
+  // Los que estan en vivo primero; dentro de cada grupo, el orden en que se agregaron.
+  function favoritosOrdenados() {
+    var vivo = s.en_vivo || {};
+    var pares = s.favoritos.map(function (f, i) { return { f: f, i: i, e: vivo[claveVivo(f)] || null }; });
+    return pares.filter(function (p) { return p.e && p.e.vivo; })
+      .concat(pares.filter(function (p) { return !(p.e && p.e.vivo); }));
+  }
   function esFavorito(canal, plat) {
     return s.favoritos.some(function (f) { return mismoCanal(f.canal, canal) && f.plataforma === plat; });
   }
@@ -306,12 +336,18 @@ details.log[open] summary::after { content: " ▴"; }
     poner("ahora", tarjetaAhora());
 
     var enTV = s.fase === "reproduciendo" || ARRANCANDO[s.fase];
-    poner("favs", s.favoritos.map(function (f, i) {
+    poner("favs", favoritosOrdenados().map(function (p) {
+      var f = p.f, e = p.e;
       var actual = enTV && s.canal && mismoCanal(f.canal, s.canal) && f.plataforma === s.plataforma;
+      var vivo = e && e.vivo;
       var der = editando ? '<span class="quitar">Quitar</span>'
-        : actual ? '<span class="en-tv"><i></i>En la TV</span>' : "<span></span>";
-      return '<button class="fila" type="button" data-fav="' + i + '"><span class="n">' + logo(f.plataforma, 18) +
-        '<span>' + esc(f.canal) + '</span></span>' + der + '</button>';
+        : actual ? '<span class="en-tv"><i></i>En la TV</span>'
+        : vivo ? '<span class="vivos"><i></i>' + (espectadores(e.espectadores) || "En vivo") + '</span>'
+        : e ? '<span class="offline">Offline</span>' : "<span></span>";
+      var tit = vivo ? [e.categoria, e.titulo].filter(Boolean).join(" · ") : "";
+      var clases = "fila" + (tit ? " con-titulo" : "") + (e && !vivo && !actual ? " off" : "");
+      return '<button class="' + clases + '" type="button" data-fav="' + p.i + '"><span class="n">' + logo(f.plataforma, 18) +
+        '<span>' + esc(nombreVisible(f.canal)) + (tit ? '<small class="tit">' + esc(tit) + '</small>' : "") + '</span></span>' + der + '</button>';
     }).join(""));
     var editar = $("btn-editar");
     editar.hidden = !s.favoritos.length;

@@ -88,6 +88,29 @@ class BaseTUI(unittest.IsolatedAsyncioTestCase):
 
 
 class TestTUI(BaseTUI):
+    async def test_los_favoritos_en_vivo_suben_arriba(self):
+        for canal in ("lacobraaa", "xqc", "auronplay"):
+            config.alternar_favorito(canal, "twitch")
+        app = tui.StreamTVApp()
+        async with app.run_test() as pilot:
+            await self._esperar(app, pilot)
+            app.ctrl.en_vivo = {
+                "twitch:auronplay": {"vivo": True, "espectadores": 235411, "titulo": "x", "categoria": None},
+                "twitch:lacobraaa": {"vivo": False},
+            }
+            app.ctrl._emitir("estado", app.ctrl.estado())
+            await pilot.pause()
+            items = list(app.query_one("#lista-favoritos").children)
+            self.assertEqual([i.canal for i in items], ["auronplay", "lacobraaa", "xqc"])
+            self.assertIn("235 mil", str(items[0].query_one(tui.Label).render()))
+
+    async def test_la_tui_de_los_tests_no_sale_a_internet(self):
+        with mock.patch.object(tui.envivo, "consultar") as consultar:
+            app = tui.StreamTVApp()
+            async with app.run_test() as pilot:
+                await self._esperar(app, pilot)
+        consultar.assert_not_called()
+
     async def test_arranca_y_lista_las_tvs(self):
         app = tui.StreamTVApp()
         async with app.run_test() as pilot:

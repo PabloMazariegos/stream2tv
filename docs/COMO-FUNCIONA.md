@@ -284,6 +284,7 @@ todo pase lo que pase.
 | `controlador.py` | Estado y lógica de reproducción; la TUI y la web son vistas que le piden acciones |
 | `cli.py` | Argumentos, modo directo, wizard |
 | `tui.py` | App de terminal (Textual) |
+| `envivo.py` | Quién de los favoritos está en vivo: GraphQL de Twitch, API de Kick (con el adaptador TLS de streamlink) y la página `/live` de YouTube |
 | `web.py` + `web/` | Panel web para el celular: página, API JSON y eventos en vivo (SSE) en `:8091` |
 | `pyproject.toml` | Dependencias y entry points; `twitch2tv` y `kick2tv` son `stream2tv` con plataforma fijada |
 | `bin/*` | Los mismos comandos, para correrlos desde el repo sin instalar |

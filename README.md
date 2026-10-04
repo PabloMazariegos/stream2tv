@@ -51,7 +51,7 @@ $ twitch2tv
 ```
 
 ```
-┌─ stream2tv ───────────────────────────────── v0.4.0 ── 09:09 ─┐
+┌─ stream2tv ───────────────────────────────── v0.5.0 ── 09:09 ─┐
 │ TVs en la red          │ Que ver                              │
 │                        │ ┌──────────────────────────────────┐ │
 │ [LG] webOS TV UP7710 * │ │ Twitch                         ▾ │ │
@@ -90,7 +90,7 @@ Los atajos usan `Ctrl` a propósito: con letras sueltas se escribirían dentro d
 
 Podés cambiar de canal sin detener a mano — escribís otro y `Enter`, y corta el anterior solo. Los favoritos se guardan y con `Enter` sobre uno arranca directo. Cada 15 segundos chequea la TV: si se detuvo sola, lo ves en pantalla.
 
-**Panel web para el celular.** Junto con la TUI arranca un panel en `http://<ip-de-la-laptop>:8091`. Con `Ctrl+W` aparece un QR: lo escaneás una vez y manejás todo desde el celular (TV, canal, favoritos, detener). El celular y la TUI muestran siempre lo mismo. Detalles en el [manual](docs/MANUAL.md).
+**Panel web para el celular.** Junto con la TUI arranca un panel en `http://<ip-de-la-laptop>:8091`. Con `Ctrl+W` aparece un QR: lo escaneás una vez y manejás todo desde el celular (TV, canal, favoritos, detener). El celular y la TUI muestran siempre lo mismo, incluido quién de tus favoritos está transmitiendo ahora. Detalles en el [manual](docs/MANUAL.md).
 
 ### Modo pregunta-respuesta
 
@@ -182,6 +182,7 @@ stream2tv/
   cli.py         argumentos, modo directo y wizard
   tui.py         la app de terminal (Textual)
   web.py         panel web para el celular (API + eventos en vivo)
+  envivo.py      quien de los favoritos esta transmitiendo (Twitch, Kick, YouTube)
   web/           la pagina del panel, su manifest e iconos
 bin/             entry points: stream2tv, kick2tv, twitch2tv
 tests/           tests de selección, URLs y de la TUI

@@ -13,7 +13,7 @@ import re
 import threading
 from datetime import datetime
 
-from . import caster, config, discovery
+from . import caster, config, discovery, envivo
 from .plataformas import resolver_url
 
 # Fases que ve la UI. "verificando" y "enviando" son el arranque en curso.
@@ -26,6 +26,8 @@ DETENIENDO = "deteniendo"
 ERROR = "error"
 
 LINEAS_LOG = 50
+# Cada cuanto se consulta quien de los favoritos esta en vivo.
+INTERVALO_EN_VIVO = 90
 
 # Lo que imprime el plugin de Twitch de streamlink al filtrar publicidad.
 _AVISO_ANUNCIO = re.compile(r"Detected advertisement break of (\d+) second")
@@ -74,6 +76,13 @@ class Controlador:
         self.log_reciente = collections.deque(maxlen=LINEAS_LOG)
         self._suscriptores = []
 
+        # Quien de los favoritos esta en vivo: {envivo.clave(...): estado}.
+        self.en_vivo = {}
+        self._sondeo = None
+        self._fin_sondeo = threading.Event()
+        self._despertar_sondeo = threading.Event()
+        self._sondeo_fallando = False
+
     # ---------- eventos ----------
 
     def suscribir(self, funcion):
@@ -116,6 +125,7 @@ class Controlador:
             "tvs": [{"udn": tv.udn, "nombre": tv.nombre, "ip": tv.host} for tv in self.tvs],
             "favoritos": config.favoritos(),
             "anuncios": self.anuncios,
+            "en_vivo": self.en_vivo,
             "arrancando": self._arranques > 0,
         }
 
@@ -182,9 +192,47 @@ class Controlador:
 
     def alternar_favorito(self, canal, plataforma):
         agregado = config.alternar_favorito(canal, plataforma)
+        if agregado:
+            # Que el nuevo muestre si esta en vivo sin esperar la proxima vuelta.
+            self._despertar_sondeo.set()
         self.log(f"{'Agregado a' if agregado else 'Quitado de'} favoritos: {canal}", "ok")
         self._emitir("estado", self.estado())
         return agregado
+
+    # ---------- favoritos en vivo ----------
+
+    def actualizar_en_vivo(self):
+        """Consulta a las plataformas quien de los favoritos transmite. Bloqueante."""
+        try:
+            self.en_vivo = envivo.consultar(config.favoritos())
+        except Exception as e:
+            # Se avisa una vez por racha de fallas, no en cada vuelta.
+            if not self._sondeo_fallando:
+                self.log(f"No se pudo consultar quien esta en vivo: {e}", "aviso")
+            self._sondeo_fallando = True
+            return
+        self._sondeo_fallando = False
+        self._emitir("estado", self.estado())
+
+    def iniciar_sondeo(self, intervalo=INTERVALO_EN_VIVO):
+        """Consulta en segundo plano cada `intervalo` segundos hasta limpiar()."""
+        if self._sondeo is not None:
+            return
+        self._fin_sondeo.clear()
+
+        def bucle():
+            while not self._fin_sondeo.is_set():
+                self.actualizar_en_vivo()
+                self._despertar_sondeo.wait(intervalo)
+                self._despertar_sondeo.clear()
+
+        self._sondeo = threading.Thread(target=bucle, daemon=True)
+        self._sondeo.start()
+
+    def detener_sondeo(self):
+        self._fin_sondeo.set()
+        self._despertar_sondeo.set()
+        self._sondeo = None
 
     # ---------- reproduccion ----------
 
@@ -391,6 +439,7 @@ class Controlador:
 
     def limpiar(self):
         """Deja todo apagado. Idempotente y sincrono: se llama salga por donde salga."""
+        self.detener_sondeo()
         with self._lock_estado:
             self._pedido += 1
         tv = self._tv_en_uso or self.tv_actual

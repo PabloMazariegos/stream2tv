@@ -217,6 +217,11 @@ class TestAcciones(BaseWeb):
         textos = [l["texto"] for l in self.json_de(contenido)["log"]]
         self.assertIn("hola desde la laptop", textos)
 
+    def test_el_estado_incluye_quien_esta_en_vivo(self):
+        self.ctrl.en_vivo = {"twitch:xqc": {"vivo": True, "espectadores": 10, "titulo": "t", "categoria": "c"}}
+        _, contenido = self.pedir("GET", "/api/estado")
+        self.assertEqual(self.json_de(contenido)["en_vivo"]["twitch:xqc"]["espectadores"], 10)
+
 
 class TestEventos(BaseWeb):
     def abrir_eventos(self):
