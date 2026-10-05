@@ -219,6 +219,25 @@ class TestAcciones(BaseWeb):
         r, contenido = self.pedir("POST", "/api/favoritos", {"canal": "xqc", "plataforma": "twitch"})
         self.assertFalse(self.json_de(contenido)["agregado"])
 
+    def test_reordenar_favoritos(self):
+        for canal in ("uno", "dos", "tres"):
+            config.alternar_favorito(canal, "kick")
+        orden = [{"canal": c, "plataforma": "kick"} for c in ("tres", "uno", "dos")]
+        r, _ = self.pedir("POST", "/api/favoritos/orden", {"orden": orden})
+        self.assertEqual(r.status, 200)
+        self.assertEqual([f["canal"] for f in config.favoritos()], ["tres", "uno", "dos"])
+        # Si la lista no coincide (alguien agrego o quito uno), no se toca nada.
+        r, _ = self.pedir("POST", "/api/favoritos/orden", {"orden": orden[:2]})
+        self.assertEqual(r.status, 409)
+        self.assertEqual(len(config.favoritos()), 3)
+        r, _ = self.pedir("POST", "/api/favoritos/orden", {"orden": "x"})
+        self.assertEqual(r.status, 400)
+
+    def test_sortable_se_sirve_sin_internet(self):
+        r, contenido = self.pedir("GET", "/sortable.min.js", cookie=False)
+        self.assertEqual(r.status, 200)
+        self.assertIn(b"Sortable", contenido[:200])
+
     def test_buscar_tvs(self):
         r, _ = self.pedir("POST", "/api/buscar-tvs", {})
         self.assertEqual(r.status, 202)

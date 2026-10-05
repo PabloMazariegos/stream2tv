@@ -37,6 +37,7 @@ ARCHIVOS = {
     "/manifest.json": ("manifest.json", "application/manifest+json"),
     "/icono-192.png": ("icono-192.png", "image/png"),
     "/icono-512.png": ("icono-512.png", "image/png"),
+    "/sortable.min.js": ("sortable.min.js", "text/javascript; charset=utf-8"),
 }
 
 
@@ -245,6 +246,7 @@ class PanelWeb:
                     "/api/tv/nombre": self._renombrar_tv,
                     "/api/buscar-tvs": self._buscar_tvs,
                     "/api/favoritos": self._favorito,
+                    "/api/favoritos/orden": self._orden_favoritos,
                 }
                 accion = acciones.get(urlparse(self.path).path)
                 if accion is None:
@@ -302,6 +304,17 @@ class PanelWeb:
                     return
                 agregado = ctrl.alternar_favorito(*pedido)
                 self._json(200, {"ok": True, "agregado": agregado})
+
+            def _orden_favoritos(self, datos):
+                orden = datos.get("orden")
+                if not isinstance(orden, list) or not all(
+                    isinstance(f, dict) and isinstance(f.get("canal"), str) and isinstance(f.get("plataforma"), str)
+                    for f in orden
+                ):
+                    return self._json(400, {"error": "se esperaba una lista de favoritos"})
+                if not ctrl.reordenar_favoritos(orden):
+                    return self._json(409, {"error": "los favoritos cambiaron, recarga el panel"})
+                self._json(200, {"ok": True})
 
         return Handler
 

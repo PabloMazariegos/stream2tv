@@ -68,7 +68,8 @@ class TestConsultar(unittest.TestCase):
             {"canal": "noexiste", "plataforma": "twitch"},
         ])
         self.assertEqual(resultado["twitch:auronplay"], {
-            "vivo": True, "espectadores": 235411, "titulo": "AMONG US", "categoria": "Among Us"})
+            "vivo": True, "espectadores": 235411, "titulo": "AMONG US", "categoria": "Among Us",
+            "miniatura": "https://static-cdn.jtvnw.net/previews-ttv/live_user_auronplay-640x360.jpg"})
         self.assertFalse(resultado["twitch:xqc"]["vivo"])
         # Un canal que no existe no es "offline": no se sabe.
         self.assertNotIn("twitch:noexiste", resultado)
@@ -77,23 +78,27 @@ class TestConsultar(unittest.TestCase):
         resultado, sesion = self.consultar(
             [{"canal": "la_cobra", "plataforma": "kick"}, {"canal": "spreen", "plataforma": "kick"}],
             kick={
-                "la-cobra": Respuesta({"data": {"viewers": 5000, "session_title": "charlando", "category": {"name": "Just Chatting"}}}),
+                "la-cobra": Respuesta({"data": {"viewers": 5000, "session_title": "charlando", "category": {"name": "Just Chatting"},
+                                                "thumbnail": {"src": "https://images.kick.com/x/720.webp"}}}),
                 "spreen": Respuesta({"data": None}),
             },
         )
         self.assertEqual(resultado["kick:la_cobra"]["espectadores"], 5000)
         self.assertEqual(resultado["kick:la_cobra"]["categoria"], "Just Chatting")
+        self.assertEqual(resultado["kick:la_cobra"]["miniatura"], "https://images.kick.com/x/720.webp")
         self.assertFalse(resultado["kick:spreen"]["vivo"])
         self.assertTrue(any("/channels/la-cobra/" in u for u in sesion.pedidas))
 
     def test_youtube_lee_la_pagina_live(self):
-        pagina = '<meta name="title" content="24/7 lofi &amp; chill">"isLiveNow":true,"originalViewCount":"4314"'
+        pagina = ('<link rel="canonical" href="https://www.youtube.com/watch?v=1-LpQekNa9g">'
+                  '<meta name="title" content="24/7 lofi &amp; chill">"isLiveNow":true,"originalViewCount":"4314"')
         resultado, _ = self.consultar(
             [{"canal": "LofiGirl", "plataforma": "youtube"}, {"canal": "midudev", "plataforma": "youtube"}],
             youtube={"lofigirl": Respuesta(texto=pagina), "midudev": Respuesta(texto="sin directo")},
         )
         self.assertEqual(resultado["youtube:lofigirl"]["titulo"], "24/7 lofi & chill")
         self.assertEqual(resultado["youtube:lofigirl"]["espectadores"], 4314)
+        self.assertEqual(resultado["youtube:lofigirl"]["miniatura"], "https://i.ytimg.com/vi/1-LpQekNa9g/hqdefault_live.jpg")
         self.assertFalse(resultado["youtube:midudev"]["vivo"])
 
     def test_una_plataforma_caida_no_tapa_a_las_otras(self):

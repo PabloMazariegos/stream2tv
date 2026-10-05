@@ -22,6 +22,9 @@ TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
 TWITCH_GQL = "https://gql.twitch.tv/gql"
 TWITCH_QUERY = "query($l:[String!]){users(logins:$l){login stream{viewersCount title game{name}}}}"
 TWITCH_MAX_POR_PEDIDO = 100
+# Twitch publica la miniatura de cada canal en vivo en una direccion fija.
+TWITCH_MINIATURA = "https://static-cdn.jtvnw.net/previews-ttv/live_user_{}-640x360.jpg"
+YOUTUBE_MINIATURA = "https://i.ytimg.com/vi/{}/hqdefault_live.jpg"
 KICK_API = "https://kick.com/api/v2/channels/{}/livestream"
 YOUTUBE_LIVE = "https://www.youtube.com/@{}/live"
 NAVEGADOR = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36"
@@ -54,8 +57,14 @@ def espectadores_corto(n):
     return f"{n / 1_000_000:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " M"
 
 
-def _estado(vivo, espectadores=None, titulo=None, categoria=None):
-    return {"vivo": vivo, "espectadores": espectadores, "titulo": titulo, "categoria": categoria}
+def _estado(vivo, espectadores=None, titulo=None, categoria=None, miniatura=None):
+    return {
+        "vivo": vivo,
+        "espectadores": espectadores,
+        "titulo": titulo,
+        "categoria": categoria,
+        "miniatura": miniatura,
+    }
 
 
 # Links de canal que se reconocen, para favoritos guardados como URL completa.
@@ -143,7 +152,8 @@ def _twitch(canales):
             if stream:
                 juego = (stream.get("game") or {}).get("name")
                 resultado[clave("twitch", usuario["login"])] = _estado(
-                    True, stream.get("viewersCount"), stream.get("title"), juego
+                    True, stream.get("viewersCount"), stream.get("title"), juego,
+                    TWITCH_MINIATURA.format(usuario["login"].lower()),
                 )
             else:
                 resultado[clave("twitch", usuario["login"])] = _estado(False)
@@ -177,13 +187,15 @@ def _kick(sesion, canal):
         return {clave("kick", canal): _estado(False)}
     categorias = datos.get("categories") or []
     categoria = (datos.get("category") or {}).get("name") or (categorias[0].get("name") if categorias else None)
-    return {clave("kick", canal): _estado(True, datos.get("viewers"), datos.get("session_title"), categoria)}
+    miniatura = (datos.get("thumbnail") or {}).get("src")
+    return {clave("kick", canal): _estado(True, datos.get("viewers"), datos.get("session_title"), categoria, miniatura)}
 
 
 # ---------- YouTube ----------
 
 _YT_TITULO = re.compile(r'<meta name="title" content="([^"]*)"')
 _YT_ESPECTADORES = re.compile(r'"originalViewCount":"(\d+)"')
+_YT_VIDEO = re.compile(r'<link rel="canonical" href="https://www\.youtube\.com/watch\?v=([\w-]{11})"')
 
 
 def _youtube(canal):
@@ -198,10 +210,13 @@ def _youtube(canal):
         return {clave("youtube", canal): _estado(False)}
     titulo = _YT_TITULO.search(r.text)
     espectadores = _YT_ESPECTADORES.search(r.text)
+    video = _YT_VIDEO.search(r.text)
     return {
         clave("youtube", canal): _estado(
             True,
             int(espectadores.group(1)) if espectadores else None,
             html.unescape(titulo.group(1)) if titulo else None,
+            None,
+            YOUTUBE_MINIATURA.format(video.group(1)) if video else None,
         )
     }

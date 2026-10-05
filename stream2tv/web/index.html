@@ -10,8 +10,9 @@
 <title>stream2tv</title>
 <style>
 /* Oscuro y limpio: sin cajas, un solo color de estado (el rojo de "en vivo")
-   y los logos de cada plataforma como unico toque de color.
-   Sin fuentes externas: el panel tiene que andar aunque no haya internet. */
+   y los logos y miniaturas de cada plataforma como unico toque de color.
+   Sin fuentes externas: el panel tiene que andar aunque no haya internet
+   (las miniaturas vienen de internet; si no cargan, el panel sigue igual). */
 :root {
   color-scheme: dark;
   --bg: #0c0c0e;
@@ -21,6 +22,8 @@
   --line: #222226;
   --borde: #2a2a30;
   --campo: #18181b;
+  --capa: #17171a;
+  --hueco: #1b1a22;
   --vivo: #ff5c61;
   --ambar: #e8b45a;
   --ok: #3fcf7f;
@@ -36,6 +39,19 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 main { max-width: 480px; margin: 0 auto; display: grid; gap: 30px; }
+button, input { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
+svg { display: block; flex: 0 0 auto; }
+img { max-width: 100%; }
+kbd {
+  font: 600 11px var(--sans); color: var(--muted); background: #1d1d22;
+  border: 1px solid #2f2f36; border-bottom-width: 2px; border-radius: 5px; padding: 0 6px;
+}
+/* Las pistas de teclado solo tienen sentido en la compu. */
+.kbd { display: none; }
+
+/* ---------- orden: en el celular las columnas no cuentan ---------- */
 #contenido { display: flex; flex-direction: column; gap: 30px; }
 .col { display: contents; }
 #ahora { order: 1; }
@@ -44,83 +60,157 @@ main { max-width: 480px; margin: 0 auto; display: grid; gap: 30px; }
 .otro { order: 3; margin-top: -30px; }
 .bloque-tv { order: 4; }
 .log { order: 5; }
-.top { position: relative; }
+
+/* ---------- encabezado ---------- */
+.top { position: relative; display: flex; justify-content: space-between; align-items: center; }
+.marca { font-weight: 650; font-size: 15px; letter-spacing: -0.01em; }
 .top-der { display: flex; align-items: center; gap: 20px; }
-.usar-cel { display: none; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); min-height: 32px; }
+.con { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.con i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.con.off i { background: var(--vivo); }
+.usar-cel, .btn-atajos { display: none; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); min-height: 32px; }
 .cuadro-qr {
   position: absolute; right: 0; top: calc(100% + 10px); z-index: 5; width: 240px;
-  background: #17171a; border: 1px solid var(--borde); border-radius: 16px; padding: 18px;
+  background: var(--capa); border: 1px solid var(--borde); border-radius: 16px; padding: 18px;
   display: flex; flex-direction: column; gap: 10px; box-shadow: 0 18px 40px rgba(0, 0, 0, .5);
 }
 .cuadro-qr img { align-self: center; border-radius: 10px; background: #fff; }
 .cuadro-qr p { margin: 0; font-size: 12px; color: var(--muted); }
 .cuadro-qr small { font-size: 11px; color: var(--tenue); overflow-wrap: anywhere; }
 
-
-button, input, select { font: inherit; color: inherit; }
-button { background: none; border: 0; padding: 0; cursor: pointer; }
-:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
-svg { display: block; flex: 0 0 auto; }
-
-.top { display: flex; justify-content: space-between; align-items: center; }
-.marca { font-weight: 650; font-size: 15px; letter-spacing: -0.01em; }
-.con { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
-.con i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
-.con.off i { background: var(--vivo); }
-
 /* ---------- lo que esta en la TV ---------- */
 .ahora { display: grid; gap: 4px; }
+.ahora.entrar .hero { animation: aparecer .4s ease-out; }
+@keyframes aparecer { from { opacity: 0; transform: translateY(4px); } }
+.hero { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; }
+.hero.sin-mini { grid-template-columns: minmax(0, 1fr); }
+.mini-hero { position: relative; width: 112px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: var(--hueco); }
+.mini-hero img, .mini img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mini-hero.cargando, .mini.cargando { animation: latir 1.4s ease-in-out infinite; }
+.chapa {
+  position: absolute; display: none; align-items: center; gap: 6px; background: rgba(12, 12, 14, .8);
+  border-radius: 999px; padding: 3px 9px; font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.chapa i { width: 7px; height: 7px; border-radius: 50%; background: var(--vivo); }
+.hero-info { display: grid; gap: 4px; min-width: 0; }
 .donde { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .titulo { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .canal { font-size: 28px; line-height: 1.15; font-weight: 650; letter-spacing: -0.02em; overflow-wrap: anywhere; min-width: 0; }
+.hero:not(.sin-mini) .canal { font-size: 22px; }
 .vacio { font-size: 20px; font-weight: 600; color: var(--muted); }
-.meta { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.meta { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; }
+/* El texto va en su propio span: si no entra, baja de renglon al lado del punto. */
+.meta > span { min-width: 0; }
 .meta.error { color: var(--vivo); }
 .punto { width: 8px; height: 8px; border-radius: 50%; background: var(--vivo); flex: 0 0 auto; }
 .espera { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); animation: latir 1.1s ease-in-out infinite; }
 .meta.reconectando { color: var(--ambar); }
 .meta.reconectando .espera { background: var(--ambar); }
-@keyframes latir { 50% { opacity: .25; } }
+@keyframes latir { 50% { opacity: .35; } }
 .sub { font-size: 12px; color: var(--muted); }
 .sub.tenue { color: var(--tenue); }
 .de-que { font-size: 12px; color: var(--tenue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .botones { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 10px; }
 .botones.solo { grid-template-columns: 1fr; }
-.sec-btn { height: 44px; border-radius: 10px; border: 1px solid var(--borde); font-weight: 600; }
+.sec-btn { height: 44px; border-radius: 10px; border: 1px solid var(--borde); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
 .sec-btn.icono { width: 44px; font-size: 17px; }
 .primario { height: 44px; border-radius: 10px; background: var(--ink); color: var(--bg); font-weight: 600; padding: 0 18px; }
 
-/* ---------- listas ---------- */
+/* ---------- Que ver ---------- */
 .bloque { display: grid; gap: 6px; }
 .cab { display: flex; justify-content: space-between; align-items: baseline; }
-.cab h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.cab h2 { margin: 0; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.cuantos { font-weight: 400; font-size: 13px; color: var(--muted); }
 .accion { font-size: 13px; color: var(--muted); min-height: 32px; }
-.fila {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px;
-  min-height: 46px; border-top: 1px solid var(--line); width: 100%; text-align: left;
-}
-.lista > :first-child, #favs > :first-child, .otro.sin-favs { border-top: 0; }
+.fav { position: relative; border-top: 1px solid var(--line); }
+#favs-vivo > .fav:first-child, #favs-vivo:empty + #favs-off > .fav:first-child { border-top: 0; }
+.fav-sel { width: 100%; text-align: left; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 46px; }
+.fav.vivo .fav-sel { grid-template-columns: 64px minmax(0, 1fr) auto; min-height: 56px; }
+.mini { position: relative; width: 64px; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: var(--hueco); }
+.fav.actual .mini { box-shadow: inset 0 0 0 1.5px var(--vivo); }
+.mini-logo { position: absolute; left: 3px; bottom: 3px; z-index: 1; background: var(--bg); border-radius: 4px; padding: 1px; }
+.fav.vivo .n > svg { display: none; }
+.mini .num, .mini .chapa { display: none; }
 .n { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .n span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .n small { display: block; font-size: 11px; color: var(--tenue); }
-/* Fila de TV: el toque elige la TV; el lapiz abre la hoja para renombrarla. */
+/* De que se trata el stream: tenue, para que mande el nombre del canal. */
+.n .tit { margin-top: 1px; line-height: 1.3; }
+.der { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.der i { width: 6px; height: 6px; border-radius: 50%; background: var(--vivo); }
+.der.en-tv { color: var(--vivo); }
+.der.quitar { color: var(--vivo); font-size: 13px; }
+.fav.off .n { color: var(--muted); }
+.fav.off svg { opacity: .45; }
+.fav-acc { display: none; }
+.offline-titulo { display: none; }
+.fav.sortable-ghost { opacity: .35; }
+
+/* ---------- Otro canal o link ---------- */
+.otro { position: relative; display: flex; align-items: center; gap: 12px; min-height: 50px; border-top: 1px solid var(--line); }
+.otro.sin-favs { border-top: 0; }
+.otro input {
+  /* 16px a proposito: con menos, el iPhone hace zoom al tocar el campo. */
+  flex: 1; min-width: 0; height: 44px; border: 0; background: transparent; padding: 0;
+  font-size: 16px; outline: none;
+}
+.otro input::placeholder { color: var(--muted); }
+.ir { width: 36px; height: 36px; border-radius: 50%; background: var(--ink); color: var(--bg); display: grid; place-items: center; }
+.ir:disabled { opacity: .35; cursor: default; }
+.plat { display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 8px; color: var(--muted); font-size: 10px; border-radius: 9px; border: 1px solid transparent; }
+.plat[aria-expanded="true"] { border-color: #3a3a42; background: #232328; }
+/* Menu propio: la lista nativa del navegador salia gris y casi no se leia. */
+.menu-plat {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 6; width: 200px;
+  background: var(--capa); border: 1px solid var(--borde); border-radius: 12px; padding: 6px;
+  display: flex; flex-direction: column; box-shadow: 0 16px 36px rgba(0, 0, 0, .55);
+}
+.opcion { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 10px; border-radius: 8px; text-align: left; }
+.opcion span { flex: 1; }
+.opcion:hover, .opcion:focus-visible { background: #222228; outline: none; }
+.opcion[aria-selected="true"] { background: #26262c; font-weight: 600; }
+
+/* ---------- TVs ---------- */
 .fila-tv { display: flex; align-items: center; border-top: 1px solid var(--line); }
+#tvs > .fila-tv:first-child { border-top: 0; }
 .tv-sel { flex: 1; min-width: 0; min-height: 52px; display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; text-align: left; }
-.tv-sel .check { text-align: center; }
+.tv-sel .check { text-align: center; font-size: 15px; }
 .lapiz { width: 44px; height: 44px; color: var(--muted); display: grid; place-items: center; flex: 0 0 auto; }
 
-/* Hoja que sube desde abajo para ponerle nombre a una TV. */
+/* ---------- actividad, estados especiales y avisos ---------- */
+details.log summary { list-style: none; cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
+details.log summary::-webkit-details-marker { display: none; }
+details.log summary::after { content: " ▾"; }
+details.log[open] summary::after { content: " ▴"; }
+.log-lineas { display: grid; gap: 6px; padding-top: 6px; font-size: 12px; color: var(--muted); }
+.log-lineas b { font-weight: 400; color: var(--ink); }
+.log-lineas .error b { color: var(--vivo); }
+.centro { display: grid; gap: 10px; justify-items: start; padding-top: 18vh; }
+.centro h2 { margin: 0; font-size: 20px; letter-spacing: -0.02em; }
+.centro p { margin: 0; color: var(--muted); font-size: 14px; max-width: 34ch; }
+.centro .primario { margin-top: 10px; }
+.cargando-txt { color: var(--muted); font-size: 13px; }
+.aviso {
+  position: fixed; left: 20px; right: 20px; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); z-index: 8;
+  max-width: 480px; margin: 0 auto; background: var(--capa); border: 1px solid var(--borde);
+  border-radius: 12px; padding: 12px 14px; font-size: 13px; display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .45);
+}
+.aviso span { flex: 1; min-width: 0; }
+.aviso button { color: var(--muted); font-size: 13px; min-height: 32px; }
+
+/* ---------- capas: hoja para renombrar y ayuda de atajos ---------- */
 .velo { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, .55); }
 .hoja {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 11; max-width: 520px; margin: 0 auto;
-  background: #17171a; border-radius: 22px 22px 0 0;
+  background: var(--capa); border-radius: 22px 22px 0 0;
   padding: 10px 20px calc(env(safe-area-inset-bottom, 0px) + 28px);
   display: flex; flex-direction: column; gap: 18px; animation: subir .2s ease-out;
 }
 @keyframes subir { from { transform: translateY(100%); } }
 .asa { align-self: center; width: 36px; height: 4px; border-radius: 2px; background: #3a3a40; }
 .hoja-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.hoja h2 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+.hoja h2, .dialogo h2 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
 .hoja-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .hoja input {
   height: 50px; border: 1.5px solid var(--ink); border-radius: 12px; background: #0f0f12;
@@ -132,72 +222,87 @@ svg { display: block; flex: 0 0 auto; }
 .sugerencia.activa { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 600; }
 .guardar { height: 50px; border-radius: 12px; background: var(--ink); color: var(--bg); font-weight: 600; font-size: 15px; }
 .texto-btn { font-size: 13px; color: var(--muted); min-height: 32px; }
-.en-tv, .vivos { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--vivo); white-space: nowrap; }
-.en-tv i, .vivos i { width: 6px; height: 6px; border-radius: 50%; background: var(--vivo); flex: 0 0 auto; }
-.vivos { color: var(--muted); font-variant-numeric: tabular-nums; }
-.fila.con-titulo { min-height: 54px; }
-/* De que se trata el stream: tenue, para que mande el nombre del canal. */
-.n .tit { display: block; margin-top: 1px; font-size: 11px; line-height: 1.3; color: var(--tenue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fila.off .n { color: var(--muted); }
-.fila.off svg { opacity: .45; }
-.offline { font-size: 12px; color: var(--muted); }
-.quitar { font-size: 13px; color: var(--vivo); }
-.check { font-size: 15px; }
-
-/* La ultima fila de "Que ver": escribir otro canal sin salir de la lista. */
-.otro { display: flex; align-items: center; gap: 12px; min-height: 50px; border-top: 1px solid var(--line); }
-.otro input {
-  /* 16px a proposito: con menos, el iPhone hace zoom al tocar el campo. */
-  flex: 1; min-width: 0; height: 44px; border: 0; background: transparent; padding: 0;
-  font-size: 16px; outline: none;
+.dialogo {
+  position: fixed; z-index: 11; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100% - 40px));
+  background: var(--capa); border: 1px solid var(--borde); border-radius: 16px; padding: 22px;
+  display: flex; flex-direction: column; gap: 14px;
 }
-.otro input::placeholder { color: var(--muted); }
-.plat { position: relative; display: flex; align-items: center; gap: 5px; height: 44px; padding: 0 2px; color: var(--muted); font-size: 10px; cursor: pointer; }
-.plat select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
-.plat:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
-.ir { width: 36px; height: 36px; border-radius: 50%; background: var(--ink); color: var(--bg); display: grid; place-items: center; }
-.ir:disabled { opacity: .35; cursor: default; }
+.dialogo-cab { display: flex; justify-content: space-between; align-items: baseline; }
+.lista-atajos { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 14px; align-items: center; font-size: 13px; margin: 0; }
+.lista-atajos dt { justify-self: start; }
+.lista-atajos dd { margin: 0; }
+.lista-atajos kbd { color: var(--ink); font-size: 12px; padding: 1px 8px; }
 
-details.log summary { list-style: none; cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
-details.log summary::-webkit-details-marker { display: none; }
-details.log summary::after { content: " ▾"; }
-details.log[open] summary::after { content: " ▴"; }
-.log-lineas { display: grid; gap: 6px; padding-top: 6px; font-size: 12px; color: var(--muted); }
-.log-lineas b { font-weight: 400; color: var(--ink); }
-.log-lineas .error b { color: var(--vivo); }
-
-.centro { display: grid; gap: 10px; justify-items: start; padding-top: 18vh; }
-.centro h2 { margin: 0; font-size: 20px; letter-spacing: -0.02em; }
-.centro p { margin: 0; color: var(--muted); font-size: 14px; max-width: 34ch; }
-.centro .primario { margin-top: 10px; }
-.cargando { color: var(--muted); font-size: 13px; }
-
-.aviso {
-  position: fixed; left: 20px; right: 20px; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
-  max-width: 480px; margin: 0 auto; background: var(--campo); border: 1px solid var(--borde);
-  border-radius: 12px; padding: 12px 14px; font-size: 13px;
+@media (prefers-reduced-motion: reduce) {
+  .espera, .hoja, .mini.cargando, .mini-hero.cargando, .ahora.entrar .hero { animation: none; }
 }
-
-@media (prefers-reduced-motion: reduce) { .espera, .hoja { animation: none; } }
 
 /* Al final a proposito: tiene que ganarle a las reglas base de arriba. */
-/* ---------- Pantalla ancha: diseno K, dos columnas ---------- */
+/* ---------- Pantalla ancha: diseno K + escritorio v2 ---------- */
 @media (min-width: 900px) {
   body { padding-left: 40px; padding-right: 40px; }
-  main { max-width: 1180px; gap: 40px; }
-  #contenido { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 56px; align-items: start; }
-  .col { display: flex; flex-direction: column; gap: 36px; min-width: 0; }
+  main { max-width: 1200px; gap: 36px; }
+  .kbd { display: inline-block; }
+  .usar-cel, .btn-atajos { display: inline-flex; }
+  #contenido { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 48px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
   #ahora, .bloque-qv, .otro, .bloque-tv, .log { order: 0; }
-  .otro { margin-top: 0; border-top: 0; background: var(--campo); border-radius: 12px; padding: 0 8px 0 16px; min-height: 52px; }
-  .otro input { font-size: 15px; }
-  .canal { font-size: 44px; line-height: 1.1; letter-spacing: -0.025em; }
-  .titulo svg { width: 34px; height: 34px; }
+
+  /* Miniatura grande arriba y el nombre y el titulo abajo. */
+  .hero, .hero.sin-mini { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
+  .mini-hero { width: 100%; border-radius: 14px; border: 1px solid #24232e; }
+  .mini-hero .chapa { display: flex; }
+  .chapa.arriba { top: 14px; left: 14px; }
+  .chapa.abajo { bottom: 14px; right: 14px; font-weight: 400; color: #c9c9d1; border-radius: 6px; }
+  .canal, .hero:not(.sin-mini) .canal { font-size: 34px; line-height: 1.1; }
+  .titulo svg { width: 28px; height: 28px; }
   .donde { font-size: 13px; }
   .meta { font-size: 14px; }
   .botones { display: flex; }
-  .botones .sec-btn:not(.icono) { padding: 0 28px; }
-  .fila.con-titulo { min-height: 58px; }
-  .usar-cel { display: inline-flex; }
+  .botones .sec-btn:not(.icono) { padding: 0 20px; }
+
+  .otro { margin-top: 0; border-top: 0; background: var(--campo); border-radius: 12px; padding: 0 10px 0 16px; min-height: 52px; }
+  .otro input { font-size: 15px; }
+
+  /* Que ver: tarjetas de a 3 con miniatura; los offline, chips al final. */
+  #favs-vivo { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  #favs-vivo .fav { border-top: 0; }
+  .fav.vivo .fav-sel { display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-height: 0; }
+  .fav.vivo .mini { width: 100%; border-radius: 10px; }
+  .fav.vivo .mini-logo { display: none; }
+  .fav.vivo .n > svg { display: block; }
+  .fav.vivo .n { gap: 8px; font-size: 13px; }
+  .fav.vivo .der { display: none; }
+  .fav.actual .mini { box-shadow: inset 0 0 0 2px var(--vivo); }
+  .mini .num { display: block; position: absolute; top: 7px; left: 7px; z-index: 1; color: var(--ink); background: rgba(12, 12, 14, .8); border: 0; font-size: 10px; font-weight: 700; }
+  .mini .chapa { display: flex; bottom: 7px; right: 7px; font-size: 10px; padding: 1px 7px; border-radius: 5px; }
+  .mini .chapa i { width: 5px; height: 5px; }
+  .mini .chapa.en-tv { color: var(--vivo); }
+  .mini .chapa.quitar { color: var(--vivo); }
+  #favs-off { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+  #favs-off:empty { display: none; }
+  .offline-titulo { display: block; font-size: 12px; color: var(--muted); margin-right: 4px; }
+  #favs-off .fav { border-top: 0; }
+  #favs-off .fav-sel { display: inline-flex; align-items: center; height: 34px; min-height: 0; padding: 0 12px; border-radius: 17px; border: 1px solid #24242a; gap: 8px; }
+  #favs-off .n { gap: 8px; font-size: 13px; }
+  #favs-off .der { display: none; }
+  #favs-off .fav-sel.quitando { border-color: var(--vivo); color: var(--vivo); }
+  .arrastrar { font-size: 12px; color: var(--tenue); margin: 4px 0 0; }
+}
+/* Hover en las tarjetas: titulo completo y botones. Solo con mouse. */
+@media (min-width: 900px) and (hover: hover) {
+  .fav.vivo { cursor: grab; }
+  .fav-acc {
+    position: absolute; top: 0; left: 0; right: 0; aspect-ratio: 16 / 9; z-index: 2; border-radius: 10px;
+    background: rgba(12, 12, 14, .7); padding: 8px; flex-direction: column; justify-content: space-between;
+    box-shadow: inset 0 0 0 2px var(--ink);
+  }
+  .fav.vivo:hover .fav-acc, .fav.vivo:focus-within .fav-acc { display: flex; }
+  .fav.vivo:hover .mini .chapa, .fav.vivo:hover .mini .num { visibility: hidden; }
+  .fav-acc .tit-completo { font-size: 11px; line-height: 1.3; color: #e4e4e8; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .fav-acc .btns { display: flex; gap: 6px; }
+  .fav-acc .poner { height: 28px; padding: 0 10px; border-radius: 7px; background: var(--ink); color: var(--bg); font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fav-acc .estrella { width: 28px; height: 28px; flex: 0 0 auto; border-radius: 7px; border: 1px solid #44444c; color: #fbbf24; font-size: 13px; }
 }
 </style>
 </head>
@@ -206,6 +311,7 @@ details.log[open] summary::after { content: " ▴"; }
   <div class="top">
     <span class="marca">stream2tv</span>
     <span class="top-der">
+      <button class="btn-atajos" type="button" id="btn-atajos" aria-haspopup="dialog"><kbd>?</kbd>Atajos</button>
       <button class="usar-cel" type="button" id="btn-celular" aria-expanded="false" aria-controls="cuadro-qr">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg>Usar en el celular
       </button>
@@ -219,7 +325,7 @@ details.log[open] summary::after { content: " ▴"; }
     </div>
   </div>
 
-  <div id="especial"><p class="cargando">Conectando con la laptop…</p></div>
+  <div id="especial"><p class="cargando-txt">Conectando con la laptop…</p></div>
 
   <div id="contenido" hidden>
     <!-- En pantalla ancha son dos columnas; en el celular las columnas no
@@ -233,30 +339,27 @@ details.log[open] summary::after { content: " ▴"; }
         <button class="ir" type="submit" id="btn-ir" aria-label="Reproducir" hidden>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
         </button>
-        <label class="plat" title="Plataforma">
-          <span id="logo-form"></span>▾
-          <select id="plat" aria-label="Plataforma">
-            <option value="kick">Kick</option>
-            <option value="twitch">Twitch</option>
-            <option value="youtube">YouTube</option>
-          </select>
-        </label>
+        <kbd class="kbd" aria-hidden="true">/</kbd>
+        <button class="plat" type="button" id="btn-plat" aria-haspopup="listbox" aria-expanded="false" aria-controls="menu-plat"><span id="logo-form"></span>▾</button>
+        <div class="menu-plat" id="menu-plat" role="listbox" aria-label="Plataforma" hidden></div>
       </form>
       <section class="bloque bloque-tv">
-        <div class="cab"><h2>TV</h2><button class="accion" type="button" data-accion="buscar" id="btn-buscar">Buscar</button></div>
-        <div class="lista" id="tvs"></div>
+        <div class="cab"><h2>TV <kbd class="kbd" aria-hidden="true">T</kbd></h2><button class="accion" type="button" data-accion="buscar" id="btn-buscar">Buscar</button></div>
+        <div id="tvs"></div>
       </section>
     </div>
     <div class="col col-der">
       <section class="bloque bloque-qv">
-        <div class="cab"><h2>Qué ver</h2><button class="accion" type="button" data-accion="editar" id="btn-editar">Editar</button></div>
-        <div class="lista"><div id="favs"></div></div>
+        <div class="cab"><h2>Qué ver <span class="cuantos" id="cuantos"></span></h2><button class="accion" type="button" data-accion="editar" id="btn-editar">Editar</button></div>
+        <div id="favs-vivo"></div>
+        <div id="favs-off"></div>
+        <p class="arrastrar kbd" id="ayuda-arrastrar" hidden>Arrastrá una tarjeta para cambiar el orden.</p>
       </section>
       <details class="log"><summary>Actividad</summary><div class="log-lineas" id="log-lineas"></div></details>
     </div>
   </div>
 </main>
-<div class="aviso" id="aviso" role="status" hidden></div>
+<div class="aviso" id="aviso" role="status" hidden><span id="aviso-texto"></span><button type="button" id="aviso-accion" hidden></button></div>
 
 <div class="velo" id="velo" hidden></div>
 <form class="hoja" id="hoja" role="dialog" aria-modal="true" aria-labelledby="hoja-titulo" hidden>
@@ -278,11 +381,24 @@ details.log[open] summary::after { content: " ▴"; }
   <button class="guardar" type="submit">Guardar</button>
   <button class="texto-btn" type="button" data-hoja="fabrica" id="hoja-fabrica">Volver al nombre de fábrica</button>
 </form>
+<div class="dialogo" id="atajos" role="dialog" aria-modal="true" aria-labelledby="atajos-titulo" hidden>
+  <div class="dialogo-cab"><h2 id="atajos-titulo">Atajos de teclado</h2><button class="texto-btn" type="button" data-cerrar>Cerrar</button></div>
+  <dl class="lista-atajos">
+    <dt><kbd>/</kbd></dt><dd>Escribir otro canal</dd>
+    <dt><kbd>1 – 9</kbd></dt><dd>Poner el canal en vivo de esa posición</dd>
+    <dt><kbd>S</kbd></dt><dd>Detener</dd>
+    <dt><kbd>T</kbd></dt><dd>Cambiar a la otra TV</dd>
+    <dt><kbd>Ctrl+V</kbd></dt><dd>Poner un link copiado de Twitch, Kick o YouTube</dd>
+    <dt><kbd>?</kbd></dt><dd>Mostrar esta ayuda</dd>
+  </dl>
+</div>
 
+<script src="/sortable.min.js"></script>
 <script>
 (function () {
   "use strict";
   var NOMBRE = { kick: "Kick", twitch: "Twitch", youtube: "YouTube" };
+  var PLATAFORMAS = ["kick", "twitch", "youtube"];
   var ARRANCANDO = { verificando: 1, enviando: 1 };
   // Fases en las que el canal sigue "en la TV" aunque no este reproduciendo justo ahora.
   var EN_TV = { reproduciendo: 1, reconectando: 1, verificando: 1, enviando: 1 };
@@ -291,10 +407,13 @@ details.log[open] summary::after { content: " ▴"; }
   var conectado = false;
   var sinAcceso = false;
   var editando = false;
+  var arrastrando = false;
   var hojaUdn = null;      // TV que se esta renombrando en la hoja
   var platForm = null;     // plataforma elegida para "Otro canal"
+  var canalMostrado = null;
+  var escritorio = window.matchMedia("(min-width: 900px)");
 
-  // Logos chicos de cada plataforma, el unico toque de color del panel.
+  // Logos chicos de cada plataforma.
   var LOGOS = {
     kick: '<rect width="24" height="24" rx="5" fill="#53FC18"></rect><path d="M6 5h4v4h2V7h2V5h4v6h-2v2h2v6h-4v-2h-2v-2h-2v4H6z" fill="#000"></path>',
     twitch: '<path fill="#9146FF" d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"></path>',
@@ -312,14 +431,23 @@ details.log[open] summary::after { content: " ▴"; }
   }
   function $(id) { return document.getElementById(id); }
 
+  // ---------- avisos (con accion opcional, ej. "Deshacer") ----------
   var avisoTimer = null;
-  function avisar(texto) {
-    var a = $("aviso");
-    a.textContent = texto;
-    a.hidden = false;
+  var avisoFn = null;
+  function avisar(texto, accion, fn) {
+    $("aviso-texto").textContent = texto;
+    var b = $("aviso-accion");
+    b.hidden = !accion;
+    b.textContent = accion || "";
+    avisoFn = fn || null;
+    $("aviso").hidden = false;
     clearTimeout(avisoTimer);
-    avisoTimer = setTimeout(function () { a.hidden = true; }, 3500);
+    avisoTimer = setTimeout(function () { $("aviso").hidden = true; }, accion ? 6000 : 3500);
   }
+  $("aviso-accion").addEventListener("click", function () {
+    $("aviso").hidden = true;
+    if (avisoFn) avisoFn();
+  });
 
   function pedir(ruta, cuerpo) {
     return fetch(ruta, {
@@ -350,7 +478,7 @@ details.log[open] summary::after { content: " ▴"; }
     return m ? m[1] : canal;
   }
   function claveVivo(f) { return f.plataforma + ":" + String(f.canal).trim().toLowerCase(); }
-  // 235411 -> "235 mil", 11437 -> "11,4 mil": igual que en la TUI.
+  // 235411 -> "235 mil", 11437 -> "11,4 mil".
   function espectadores(n) {
     if (n == null) return "";
     if (n < 1000) return String(n);
@@ -358,12 +486,25 @@ details.log[open] summary::after { content: " ▴"; }
     if (n < 1000000) return Math.floor(n / 1000) + " mil";
     return (n / 1000000).toFixed(1).replace(/\.0$/, "").replace(".", ",") + " M";
   }
-  // Los que estan en vivo primero; dentro de cada grupo, el orden en que se agregaron.
-  function favoritosOrdenados() {
+  // Las miniaturas se renuevan cada 5 minutos (la plataforma las actualiza).
+  function miniatura(url) {
+    if (!url) return "";
+    return url + (url.indexOf("?") >= 0 ? "&" : "?") + "s2t=" + Math.floor(Date.now() / 300000);
+  }
+  function img(url) {
+    if (!url) return "";
+    // Si no carga (sin internet, canal recien cortado), queda el hueco oscuro.
+    return '<img src="' + esc(miniatura(url)) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">';
+  }
+  function vivos() {
     var vivo = s.en_vivo || {};
-    var pares = s.favoritos.map(function (f, i) { return { f: f, i: i, e: vivo[claveVivo(f)] || null }; });
-    return pares.filter(function (p) { return p.e && p.e.vivo; })
-      .concat(pares.filter(function (p) { return !(p.e && p.e.vivo); }));
+    return s.favoritos.map(function (f, i) { return { f: f, i: i, e: vivo[claveVivo(f)] || null }; })
+      .filter(function (p) { return p.e && p.e.vivo; });
+  }
+  function noVivos() {
+    var vivo = s.en_vivo || {};
+    return s.favoritos.map(function (f, i) { return { f: f, i: i, e: vivo[claveVivo(f)] || null }; })
+      .filter(function (p) { return !(p.e && p.e.vivo); });
   }
   function esFavorito(canal, plat) {
     return s.favoritos.some(function (f) { return mismoCanal(f.canal, canal) && f.plataforma === plat; });
@@ -372,6 +513,7 @@ details.log[open] summary::after { content: " ▴"; }
     if (!s.desde) return null;
     return Math.max(0, Math.floor((Date.now() - new Date(s.desde).getTime()) / 60000));
   }
+  function ocupado() { return !!(s && (s.arrancando || ARRANCANDO[s.fase])); }
 
   // Cada seccion se reescribe solo si su HTML cambio: el campo de texto
   // nunca se toca, asi el teclado del celular no se cierra mientras escribis.
@@ -382,45 +524,96 @@ details.log[open] summary::after { content: " ▴"; }
     $(id).innerHTML = html;
   }
 
+  // ---------- lo que esta en la TV ----------
   function tarjetaAhora() {
     var donde = '<div class="donde">Ahora en ' + esc(tvNombre() || "ninguna TV") + '</div>';
     if (s.fase === "libre" || s.fase === "buscando" || !s.canal) {
-      return donde + '<div class="vacio">' + (s.fase === "buscando" ? "Buscando TVs…" : "Nada en la TV") + '</div>' +
-        '<div class="sub">Elegí un canal de la lista o escribí otro.</div>';
+      return '<div class="hero sin-mini"><div class="hero-info">' + donde +
+        '<div class="vacio">' + (s.fase === "buscando" ? "Buscando TVs…" : "Nada en la TV") + '</div>' +
+        '<div class="sub">Elegí un canal de la lista o escribí otro.</div></div></div>';
     }
-    var titulo = '<div class="titulo">' + logo(s.plataforma, 24) + '<span class="canal">' + esc(s.canal) + '</span></div>';
     var info = (s.en_vivo || {})[claveVivo({ plataforma: s.plataforma, canal: s.canal })];
-    if (info && info.vivo) {
-      var deQue = [info.categoria, info.titulo].filter(Boolean).join(" · ");
+    var vivoInfo = info && info.vivo ? info : null;
+    var m = minutos();
+
+    var mini = "";
+    if (ARRANCANDO[s.fase]) {
+      mini = '<div class="mini-hero cargando" aria-hidden="true"></div>';
+    } else if (vivoInfo && vivoInfo.miniatura && (s.fase === "reproduciendo" || s.fase === "reconectando")) {
+      var arriba = "EN VIVO" + (vivoInfo.espectadores ? " · " + espectadores(vivoInfo.espectadores) : "");
+      var abajo = "en " + tvNombre() + (m !== null ? " · " + (m === 0 ? "recién empezó" : m + " min") : "");
+      mini = '<div class="mini-hero">' + img(vivoInfo.miniatura) +
+        '<span class="chapa arriba"><i></i>' + esc(arriba) + '</span><span class="chapa abajo">' + esc(abajo) + '</span></div>';
+    }
+
+    var titulo = '<div class="titulo">' + logo(s.plataforma, 24) + '<span class="canal">' + esc(nombreVisible(s.canal)) + '</span></div>';
+    if (vivoInfo) {
+      var deQue = [vivoInfo.categoria, vivoInfo.titulo].filter(Boolean).join(" · ");
       if (deQue) titulo += '<div class="de-que">' + esc(deQue) + '</div>';
     }
     var meta, sub = "", botones = "";
+    var detener = '<button class="sec-btn" type="button" data-accion="detener">Detener <kbd class="kbd" aria-hidden="true">S</kbd></button>';
     if (s.fase === "reproduciendo") {
-      var m = minutos();
       var partes = ["En vivo"];
       if (m !== null) partes.push(m === 0 ? "recién empezó" : m + " min");
-      if (info && info.vivo && info.espectadores) partes.push(espectadores(info.espectadores) + " viendo");
+      if (vivoInfo && vivoInfo.espectadores) partes.push(espectadores(vivoInfo.espectadores) + " viendo");
       if (s.anuncios) partes.push(s.anuncios === 1 ? "1 anuncio filtrado" : s.anuncios + " anuncios filtrados");
-      meta = '<div class="meta"><i class="punto"></i>' + partes.join(" · ") + '</div>';
+      meta = '<div class="meta"><i class="punto"></i><span>' + partes.join(" · ") + '</span></div>';
       var guardar = !esFavorito(s.canal, s.plataforma);
-      botones = '<div class="botones' + (guardar ? "" : " solo") + '"><button class="sec-btn" type="button" data-accion="detener">Detener</button>' +
+      botones = '<div class="botones' + (guardar ? "" : " solo") + '">' + detener +
         (guardar ? '<button class="sec-btn icono" type="button" data-accion="guardar" aria-label="Guardar en Qué ver">☆</button>' : "") + '</div>';
     } else if (s.fase === "reconectando") {
       // El mensaje viene como "Reconectando... intento 2 de 5".
       var intento = /intento (\d+ de \d+)/.exec(s.mensaje || "");
-      meta = '<div class="meta reconectando"><i class="espera"></i>Reconectando…' + (intento ? " intento " + intento[1] : "") + '</div>';
+      meta = '<div class="meta reconectando"><i class="espera"></i><span>Reconectando…' + (intento ? " intento " + intento[1] : "") + '</span></div>';
       sub = '<div class="sub tenue">' + esc(NOMBRE[s.plataforma] || "El sitio") + ' dejó de responder. La TV sigue conectada y vuelve sola.</div>';
-      botones = '<div class="botones solo"><button class="sec-btn" type="button" data-accion="detener">Detener</button></div>';
+      botones = '<div class="botones solo">' + detener + '</div>';
     } else if (s.fase === "error") {
       meta = '<div class="meta error">' + esc(s.mensaje) + '</div>';
       sub = '<div class="sub">Probá con otro canal o volvé más tarde.</div>';
     } else {
       var texto = s.fase === "verificando" ? "Verificando en " + (NOMBRE[s.plataforma] || "el sitio") + "…"
         : s.fase === "enviando" ? "Abriendo en la TV…" : "Deteniendo…";
-      meta = '<div class="meta"><i class="espera"></i>' + texto + '</div>';
+      meta = '<div class="meta"><i class="espera"></i><span>' + texto + '</span></div>';
       if (s.fase !== "deteniendo") botones = '<div class="botones solo"><button class="sec-btn" type="button" data-accion="detener">Cancelar</button></div>';
     }
-    return donde + titulo + meta + sub + botones;
+    return '<div class="hero' + (mini ? "" : " sin-mini") + '">' + mini +
+      '<div class="hero-info">' + donde + titulo + meta + sub + '</div></div>' + botones;
+  }
+
+  // ---------- Que ver ----------
+  function favVivo(p, n) {
+    var f = p.f, e = p.e;
+    var actual = EN_TV[s.fase] && s.canal && mismoCanal(f.canal, s.canal) && f.plataforma === s.plataforma;
+    var nombre = esc(nombreVisible(f.canal));
+    var tit = [e.categoria, e.titulo].filter(Boolean).join(" · ");
+    var cifra = espectadores(e.espectadores) || "En vivo";
+    var chapa = editando ? '<span class="chapa quitar">Quitar</span>'
+      : actual ? '<span class="chapa en-tv"><i></i>En la TV</span>'
+      : '<span class="chapa"><i></i>' + esc(cifra) + '</span>';
+    var der = editando ? '<span class="der quitar">Quitar</span>'
+      : actual ? '<span class="der en-tv"><i></i>En la TV</span>'
+      : '<span class="der"><i></i>' + esc(cifra) + '</span>';
+    return '<div class="fav vivo' + (actual ? " actual" : "") + '" data-i="' + p.i + '">' +
+      '<button class="fav-sel" type="button" data-fav="' + p.i + '" aria-label="' + (editando ? "Quitar " : "Poner ") + nombre + '">' +
+        '<span class="mini">' + img(e.miniatura) + '<span class="mini-logo">' + logo(f.plataforma, 14) + '</span>' +
+          (n <= 9 ? '<kbd class="num" aria-hidden="true">' + n + '</kbd>' : "") + chapa + '</span>' +
+        '<span class="n">' + logo(f.plataforma, 16) + '<span>' + nombre + (tit ? '<small class="tit">' + esc(tit) + '</small>' : "") + '</span></span>' +
+        der +
+      '</button>' +
+      '<div class="fav-acc"><span class="tit-completo">' + esc(e.titulo || e.categoria || "") + '</span>' +
+        '<span class="btns"><button class="poner" type="button" data-fav="' + p.i + '">▶ Poner en ' + esc(tvNombre() || "la TV") + '</button>' +
+        '<button class="estrella" type="button" data-quitar="' + p.i + '" aria-label="Quitar ' + nombre + ' de Qué ver">★</button></span></div>' +
+    '</div>';
+  }
+  function favOff(p) {
+    var f = p.f, e = p.e;
+    var nombre = esc(nombreVisible(f.canal));
+    var der = editando ? '<span class="der quitar">Quitar</span>' : e ? '<span class="der">Offline</span>' : "<span></span>";
+    return '<div class="fav' + (e ? " off" : "") + '" data-i="' + p.i + '">' +
+      '<button class="fav-sel' + (editando ? " quitando" : "") + '" type="button" data-fav="' + p.i + '">' +
+        '<span class="n">' + logo(f.plataforma, 16) + '<span>' + nombre + '</span></span>' + der +
+      '</button></div>';
   }
 
   function renderConexion() {
@@ -437,15 +630,24 @@ details.log[open] summary::after { content: " ▴"; }
   function vistaEspecial() {
     if (sinAcceso) {
       return '<div class="centro"><h2>Este celular no tiene acceso</h2>' +
-        '<p>En la laptop, abrí stream2tv, apretá Ctrl+W y escaneá el código con la cámara. Se hace una sola vez.</p></div>';
+        '<p>Escaneá con la cámara el código que muestra la terminal al abrir stream2tv, o el del botón "Usar en el celular" del panel en la compu. Se hace una sola vez.</p></div>';
     }
-    if (!s) return '<p class="cargando">Conectando con la laptop…</p>';
+    if (!s) return '<p class="cargando-txt">Conectando con la laptop…</p>';
     if (!s.tvs.length && s.fase !== "buscando" && !s.canal) {
       return '<div class="centro"><h2>No encontré ninguna TV</h2>' +
         '<p>Revisá que esté prendida y en el mismo wifi. Si usás Kodi, abrilo antes de buscar.</p>' +
         '<button class="primario" type="button" data-accion="buscar">Buscar de nuevo</button></div>';
     }
     return null;
+  }
+
+  function renderMenuPlat() {
+    poner("logo-form", logo(platForm, 18));
+    $("btn-plat").setAttribute("aria-label", "Plataforma: " + NOMBRE[platForm]);
+    poner("menu-plat", PLATAFORMAS.map(function (p) {
+      return '<button class="opcion" type="button" role="option" data-opcion="' + p + '" aria-selected="' + (p === platForm) + '">' +
+        logo(p, 18) + '<span>' + NOMBRE[p] + '</span>' + (p === platForm ? '<b aria-hidden="true">✓</b>' : "") + '</button>';
+    }).join(""));
   }
 
   function render() {
@@ -457,30 +659,35 @@ details.log[open] summary::after { content: " ▴"; }
 
     if (!platForm) platForm = s.plataforma || s.plataforma_inicial || "kick";
     if (!s.favoritos.length) editando = false;
+
+    // Fundido suave cuando cambia lo que se esta viendo.
+    var clave = s.canal ? s.plataforma + ":" + s.canal : "";
+    if (clave !== canalMostrado) {
+      if (canalMostrado !== null) {
+        var ahora = $("ahora");
+        ahora.classList.remove("entrar");
+        void ahora.offsetWidth;
+        ahora.classList.add("entrar");
+      }
+      canalMostrado = clave;
+    }
     poner("ahora", tarjetaAhora());
 
-    var enTV = EN_TV[s.fase];
-    poner("favs", favoritosOrdenados().map(function (p) {
-      var f = p.f, e = p.e;
-      var actual = enTV && s.canal && mismoCanal(f.canal, s.canal) && f.plataforma === s.plataforma;
-      var vivo = e && e.vivo;
-      var der = editando ? '<span class="quitar">Quitar</span>'
-        : actual ? '<span class="en-tv"><i></i>En la TV</span>'
-        : vivo ? '<span class="vivos"><i></i>' + (espectadores(e.espectadores) || "En vivo") + '</span>'
-        : e ? '<span class="offline">Offline</span>' : "<span></span>";
-      var tit = vivo ? [e.categoria, e.titulo].filter(Boolean).join(" · ") : "";
-      var clases = "fila" + (tit ? " con-titulo" : "") + (e && !vivo && !actual ? " off" : "");
-      return '<button class="' + clases + '" type="button" data-fav="' + p.i + '"><span class="n">' + logo(f.plataforma, 18) +
-        '<span>' + esc(nombreVisible(f.canal)) + (tit ? '<small class="tit">' + esc(tit) + '</small>' : "") + '</span></span>' + der + '</button>';
-    }).join(""));
+    var lv = vivos(), lo = noVivos();
+    $("cuantos").textContent = lv.length ? "· " + lv.length + " en vivo" : "";
+    // Mientras se arrastra no se redibuja: se perderia la tarjeta en la mano.
+    if (!arrastrando) {
+      poner("favs-vivo", lv.map(function (p, k) { return favVivo(p, k + 1); }).join(""));
+      poner("favs-off", lo.length ? (lv.length ? '<span class="offline-titulo">Offline</span>' : "") + lo.map(favOff).join("") : "");
+    }
+    $("ayuda-arrastrar").hidden = s.favoritos.length < 2;
     var editar = $("btn-editar");
     editar.hidden = !s.favoritos.length;
     editar.textContent = editando ? "Listo" : "Editar";
 
     $("form").classList.toggle("sin-favs", !s.favoritos.length);
-    poner("logo-form", logo(platForm, 18));
-    $("plat").value = platForm;
-    $("btn-ir").disabled = !!(s.arrancando || ARRANCANDO[s.fase]);
+    renderMenuPlat();
+    $("btn-ir").disabled = ocupado();
     $("btn-buscar").textContent = s.fase === "buscando" ? "Buscando…" : "Buscar";
 
     poner("tvs", s.tvs.map(function (t) {
@@ -494,6 +701,18 @@ details.log[open] summary::after { content: " ▴"; }
     renderLog();
   }
 
+  // ---------- acciones ----------
+  function poner_(f) {
+    if (!f || ocupado()) return;
+    pedir("/api/reproducir", { canal: f.canal, plataforma: f.plataforma });
+  }
+  function quitar(f) {
+    if (f) pedir("/api/favoritos", { canal: f.canal, plataforma: f.plataforma });
+  }
+  function detener() {
+    if (s && (EN_TV[s.fase] || s.fase === "error")) pedir("/api/detener");
+  }
+
   document.getElementById("app").addEventListener("click", function (e) {
     var b = e.target.closest("button");
     if (!b || !s) return;
@@ -504,12 +723,76 @@ details.log[open] summary::after { content: " ▴"; }
     if (accion === "editar") { editando = !editando; render(); return; }
     if (b.dataset.renombrar) return abrirHoja(b.dataset.renombrar);
     if (b.dataset.tv) return pedir("/api/tv", { udn: b.dataset.tv });
+    if (b.dataset.quitar) return quitar(s.favoritos[+b.dataset.quitar]);
     if (b.dataset.fav) {
       var f = s.favoritos[+b.dataset.fav];
-      if (!f) return;
-      if (editando) return pedir("/api/favoritos", { canal: f.canal, plataforma: f.plataforma });
-      if (s.arrancando || ARRANCANDO[s.fase]) return;
-      pedir("/api/reproducir", { canal: f.canal, plataforma: f.plataforma });
+      if (editando) return quitar(f);
+      poner_(f);
+    }
+  });
+
+  // ---------- reordenar arrastrando (solo en la compu) ----------
+  function ordenDelDOM() {
+    var nodos = document.querySelectorAll("#favs-vivo .fav, #favs-off .fav");
+    return Array.prototype.map.call(nodos, function (n) { return s.favoritos[+n.dataset.i]; }).filter(Boolean);
+  }
+  function soltar() {
+    arrastrando = false;
+    var orden = ordenDelDOM();
+    // El DOM ya quedo en el orden nuevo: se fuerza el proximo redibujado para
+    // que muestre lo que confirme la laptop (o vuelva atras si rechaza).
+    cache["favs-vivo"] = cache["favs-off"] = null;
+    if (orden.length !== s.favoritos.length) { render(); return; }
+    pedir("/api/favoritos/orden", { orden: orden }).then(render);
+  }
+  var ordenables = [];
+  if (window.Sortable) {
+    ["favs-vivo", "favs-off"].forEach(function (id) {
+      ordenables.push(window.Sortable.create($(id), {
+        draggable: ".fav",
+        animation: 150,
+        // Arrastre propio de Sortable en vez del nativo del navegador: se ve
+        // igual en todos y la tarjeta acompana al mouse sin el "fantasma" gris.
+        forceFallback: true,
+        disabled: !escritorio.matches,
+        onStart: function () { arrastrando = true; },
+        onEnd: soltar
+      }));
+    });
+    var alCambiarAncho = function () {
+      ordenables.forEach(function (o) { o.option("disabled", !escritorio.matches); });
+    };
+    if (escritorio.addEventListener) escritorio.addEventListener("change", alCambiarAncho);
+  }
+
+  // ---------- menu de plataforma ----------
+  function abrirMenuPlat(abrir) {
+    var menu = $("menu-plat");
+    if (abrir === undefined) abrir = menu.hidden;
+    menu.hidden = !abrir;
+    $("btn-plat").setAttribute("aria-expanded", abrir ? "true" : "false");
+    if (abrir) {
+      var elegida = menu.querySelector('[aria-selected="true"]') || menu.querySelector(".opcion");
+      if (elegida) elegida.focus();
+    }
+  }
+  $("btn-plat").addEventListener("click", function (e) { e.stopPropagation(); abrirMenuPlat(); });
+  $("menu-plat").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-opcion]");
+    if (!b) return;
+    e.stopPropagation();
+    platForm = b.dataset.opcion;
+    abrirMenuPlat(false);
+    render();
+    $("btn-plat").focus();
+  });
+  $("menu-plat").addEventListener("keydown", function (e) {
+    var opciones = Array.prototype.slice.call(this.querySelectorAll(".opcion"));
+    var i = opciones.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      var j = (i + (e.key === "ArrowDown" ? 1 : -1) + opciones.length) % opciones.length;
+      opciones[j].focus();
     }
   });
 
@@ -525,9 +808,28 @@ details.log[open] summary::after { content: " ▴"; }
   $("btn-celular").addEventListener("click", function (e) { e.stopPropagation(); alternarQR(); });
   document.addEventListener("click", function (e) {
     if (!$("cuadro-qr").hidden && !$("cuadro-qr").contains(e.target)) alternarQR(false);
+    if (!$("menu-plat").hidden && !$("menu-plat").contains(e.target)) abrirMenuPlat(false);
   });
 
-  // ---------- hoja para renombrar una TV ----------
+  // ---------- capas: hoja para renombrar y ayuda de atajos ----------
+  function abrirCapa(id) {
+    $("velo").hidden = false;
+    $(id).hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+  function cerrarCapas() {
+    hojaUdn = null;
+    $("hoja-nombre").blur();
+    $("velo").hidden = true;
+    $("hoja").hidden = true;
+    $("atajos").hidden = true;
+    document.body.style.overflow = "";
+  }
+  function capaAbierta() { return !$("hoja").hidden || !$("atajos").hidden; }
+  $("velo").addEventListener("click", cerrarCapas);
+  $("btn-atajos").addEventListener("click", function () { abrirCapa("atajos"); });
+  $("atajos").addEventListener("click", function (e) { if (e.target.closest("[data-cerrar]")) cerrarCapas(); });
+
   function abrirHoja(udn) {
     var tv = s.tvs.filter(function (t) { return t.udn === udn; })[0];
     if (!tv) return;
@@ -538,18 +840,9 @@ details.log[open] summary::after { content: " ▴"; }
     entrada.placeholder = tv.original;
     $("hoja-fabrica").hidden = !tv.alias;
     marcarSugerencia();
-    $("velo").hidden = false;
-    $("hoja").hidden = false;
-    document.body.style.overflow = "hidden";
+    abrirCapa("hoja");
     // Dentro del toque del usuario: asi el celular abre el teclado.
     entrada.focus();
-  }
-  function cerrarHoja() {
-    hojaUdn = null;
-    $("hoja-nombre").blur();
-    $("velo").hidden = true;
-    $("hoja").hidden = true;
-    document.body.style.overflow = "";
   }
   function marcarSugerencia() {
     var valor = $("hoja-nombre").value.trim().toLowerCase();
@@ -561,7 +854,7 @@ details.log[open] summary::after { content: " ▴"; }
     var udn = hojaUdn;
     if (!udn) return;
     pedir("/api/tv/nombre", { udn: udn, alias: alias }).then(function (r) {
-      if (r && r.ok) cerrarHoja();
+      if (r && r.ok) cerrarCapas();
     });
   }
   $("hoja").addEventListener("submit", function (e) {
@@ -576,18 +869,57 @@ details.log[open] summary::after { content: " ▴"; }
       marcarSugerencia();
       return;
     }
-    if (b.dataset.hoja === "cancelar") return cerrarHoja();
+    if (b.dataset.hoja === "cancelar") return cerrarCapas();
     if (b.dataset.hoja === "fabrica") return guardarNombre("");
   });
   $("hoja-nombre").addEventListener("input", marcarSugerencia);
-  $("velo").addEventListener("click", cerrarHoja);
+
+  // ---------- atajos de teclado ----------
+  function escribiendo(el) {
+    return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+  }
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && hojaUdn) cerrarHoja();
-    if (e.key === "Escape" && !$("cuadro-qr").hidden) alternarQR(false);
+    if (e.key === "Escape") {
+      if (capaAbierta()) cerrarCapas();
+      if (!$("cuadro-qr").hidden) alternarQR(false);
+      if (!$("menu-plat").hidden) { abrirMenuPlat(false); $("btn-plat").focus(); }
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey || escribiendo(e.target) || capaAbierta() || !s || sinAcceso) return;
+    if (e.key === "/") { e.preventDefault(); $("canal").focus(); return; }
+    if (e.key === "?") { e.preventDefault(); abrirCapa("atajos"); return; }
+    if (e.key === "s" || e.key === "S") { detener(); return; }
+    if ((e.key === "t" || e.key === "T") && s.tvs.length > 1) {
+      var i = s.tvs.map(function (t) { return t.udn; }).indexOf(s.tv);
+      pedir("/api/tv", { udn: s.tvs[(i + 1) % s.tvs.length].udn });
+      return;
+    }
+    if (/^[1-9]$/.test(e.key)) {
+      var p = vivos()[+e.key - 1];
+      if (p) poner_(p.f);
+    }
   });
-  $("plat").addEventListener("change", function () { platForm = this.value; render(); });
+
+  // ---------- pegar un link en cualquier parte ----------
+  document.addEventListener("paste", function (e) {
+    if (escribiendo(e.target) || capaAbierta() || !s || sinAcceso) return;
+    var texto = ((e.clipboardData || window.clipboardData).getData("text") || "").trim();
+    if (!/^https?:\/\/\S+$/i.test(texto)) return;
+    e.preventDefault();
+    var previo = EN_TV[s.fase] && s.canal ? { canal: s.canal, plataforma: s.plataforma } : null;
+    pedir("/api/reproducir", { canal: texto, plataforma: platForm }).then(function (r) {
+      if (!r || !r.ok) return;
+      avisar("Poniendo " + nombreVisible(texto) + " en " + (tvNombre() || "la TV") + "…", "Deshacer", function () {
+        if (previo) pedir("/api/reproducir", previo);
+        else pedir("/api/detener");
+      });
+    });
+  });
+
+  // ---------- Otro canal o link ----------
   // La flecha aparece solo mientras hay algo escrito; Enter en el teclado tambien sirve.
   $("canal").addEventListener("input", function () { $("btn-ir").hidden = !this.value.trim(); });
+  $("canal").addEventListener("keydown", function (e) { if (e.key === "Escape") this.blur(); });
   $("form").addEventListener("submit", function (e) {
     e.preventDefault();
     var entrada = $("canal");
@@ -598,6 +930,7 @@ details.log[open] summary::after { content: " ▴"; }
     });
   });
 
+  // ---------- conexion con la laptop ----------
   function cargarEstado() {
     return fetch("/api/estado", { credentials: "same-origin" }).then(function (r) {
       if (r.status === 401) { sinAcceso = true; render(); return null; }
@@ -631,8 +964,8 @@ details.log[open] summary::after { content: " ▴"; }
     });
   }
 
-  // Los minutos avanzan aunque no lleguen eventos.
-  setInterval(function () { if (s && s.fase === "reproduciendo" && !sinAcceso) poner("ahora", tarjetaAhora()); }, 30000);
+  // Los minutos avanzan y las miniaturas se renuevan aunque no lleguen eventos.
+  setInterval(function () { if (s && !sinAcceso) render(); }, 30000);
   cargarEstado();
 })();
 </script>

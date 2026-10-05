@@ -111,6 +111,18 @@ YouTube dejan de responder un momento, el stream se reconecta solo ("Reconectand
 
 En la compu el panel se ve en dos columnas; en el celular, en una. Es la misma página.
 
+En la compu, además:
+
+- **Miniaturas en vivo**: arriba, grande, la de lo que estás viendo; en "Qué ver",
+  una tarjeta con miniatura por cada canal transmitiendo (los offline quedan como
+  chips chicos al final). Al pasar el mouse por una tarjeta aparece el título completo
+  y los botones **▶ Poner** y **★** (quitar).
+- **Atajos de teclado** (`?` muestra la lista): `/` escribir otro canal, `1`–`9`
+  poner el canal en vivo de esa posición, `S` detener, `T` cambiar a la otra TV.
+- **Pegar y listo**: copiá un link de Twitch, Kick o YouTube y apretá `Ctrl+V` en
+  cualquier parte del panel. Se pone en la TV, con un aviso para deshacer.
+- **Reordenar**: arrastrá las tarjetas para cambiar el orden de "Qué ver".
+
 ### En el celular
 
 1. Escaneá con la cámara el QR que muestra la terminal al arrancar, o el del botón

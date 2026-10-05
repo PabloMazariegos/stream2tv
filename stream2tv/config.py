@@ -123,6 +123,24 @@ def es_favorito(canal, plataforma):
     )
 
 
+def reordenar_favoritos(orden):
+    """Guarda los favoritos en el orden dado. Solo reordena: si `orden` no tiene
+    exactamente los mismos favoritos (alguien agrego o quito uno mientras tanto),
+    no toca nada y devuelve False."""
+    datos = cargar()
+    actuales = datos.get("favoritos", [])
+
+    def clave(f):
+        return (f["canal"].lower(), f["plataforma"])
+
+    if sorted(map(clave, orden)) != sorted(map(clave, actuales)):
+        return False
+    por_clave = {clave(f): f for f in actuales}
+    datos["favoritos"] = [por_clave[clave(f)] for f in orden]
+    guardar(datos)
+    return True
+
+
 def alternar_favorito(canal, plataforma):
     """Agrega o quita un favorito. Devuelve True si quedo agregado."""
     datos = cargar()

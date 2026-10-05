@@ -230,6 +230,12 @@ class Controlador:
         self._emitir("estado", self.estado())
         return agregado
 
+    def reordenar_favoritos(self, orden):
+        if not config.reordenar_favoritos(orden):
+            return False
+        self._emitir("estado", self.estado())
+        return True
+
     # ---------- favoritos en vivo ----------
 
     def actualizar_en_vivo(self):
