@@ -113,7 +113,6 @@ kbd {
 .botones { display: flex; gap: 8px; margin-top: 10px; }
 .sec-btn { height: 44px; border-radius: 10px; border: 1px solid var(--borde); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
 .sec-btn.icono { width: 44px; font-size: 17px; }
-.primario { height: 44px; border-radius: 10px; background: var(--ink); color: var(--bg); font-weight: 600; padding: 0 18px; }
 
 /* ---------- Ver aqui: el stream en el navegador ---------- */
 .visor { display: grid; gap: 8px; }
@@ -186,6 +185,7 @@ kbd {
 .tv-sel { flex: 1; min-width: 0; min-height: 52px; display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; text-align: left; }
 .tv-sel .check { text-align: center; font-size: 15px; }
 .lapiz { width: 44px; height: 44px; color: var(--muted); display: grid; place-items: center; flex: 0 0 auto; }
+.sin-tvs { margin: 0; padding: 4px 0 14px; font-size: 13px; color: var(--muted); max-width: 46ch; }
 
 /* ---------- actividad, estados especiales y avisos ---------- */
 details.log summary { list-style: none; cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
@@ -198,7 +198,6 @@ details.log[open] summary::after { content: " ▴"; }
 .centro { display: grid; gap: 10px; justify-items: start; padding-top: 18vh; }
 .centro h2 { margin: 0; font-size: 20px; letter-spacing: -0.02em; }
 .centro p { margin: 0; color: var(--muted); font-size: 14px; max-width: 34ch; }
-.centro .primario { margin-top: 10px; }
 .cargando-txt { color: var(--muted); font-size: 13px; }
 .aviso {
   position: fixed; left: 20px; right: 20px; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); z-index: 8;
@@ -676,11 +675,7 @@ details.log[open] summary::after { content: " ▴"; }
         '<p>Escaneá con la cámara el código que muestra la terminal al abrir stream2tv, o el del botón "Usar en el celular" del panel en la compu. Se hace una sola vez.</p></div>';
     }
     if (!s) return '<p class="cargando-txt">Conectando con la laptop…</p>';
-    if (!s.tvs.length && s.fase !== "buscando" && !s.canal) {
-      return '<div class="centro"><h2>No encontré ninguna TV</h2>' +
-        '<p>Revisá que esté prendida y en el mismo wifi. Si usás Kodi, abrilo antes de buscar.</p>' +
-        '<button class="primario" type="button" data-accion="buscar">Buscar de nuevo</button></div>';
-    }
+    // Sin TV el panel sigue: se puede ver aqui. La lista de TVs dice que no hay.
     return null;
   }
 
@@ -739,7 +734,8 @@ details.log[open] summary::after { content: " ▴"; }
         '<span class="check" aria-hidden="true">' + (t.udn === s.tv ? "✓" : "") + '</span></button>' +
         '<button class="lapiz" type="button" data-renombrar="' + esc(t.udn) + '" aria-label="Cambiar el nombre de ' + esc(t.nombre) + '">' +
         '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></button></div>';
-    }).join(""));
+    }).join("") || (s.fase === "buscando" ? '<p class="sin-tvs">Buscando TVs…</p>'
+      : '<p class="sin-tvs">No encontré ninguna TV. Revisá que esté prendida y en el mismo wifi; si usás Kodi, abrilo antes de buscar. Mientras tanto podés ver los canales aquí.</p>'));
     renderLog();
   }
 
