@@ -329,6 +329,87 @@ class TestAnuncios(BaseWeb):
         self.assertEqual(self.ctrl.anuncios, 0)
 
 
+class TestVerEnElNavegador(BaseWeb):
+    # ffmpeg de mentira: copia la entrada a la salida tal cual.
+    REMUX = [sys.executable, "-c", "import shutil, sys; shutil.copyfileobj(sys.stdin.buffer, sys.stdout.buffer)"]
+
+    def setUp(self):
+        super().setUp()
+        parche = mock.patch.object(web, "REMUX_MP4", self.REMUX)
+        parche.start()
+        self.addCleanup(parche.stop)
+
+    def backend(self, codigo):
+        """Hace que el "streamlink" del panel sea un python -c con este codigo."""
+        comando = mock.Mock(return_value=[sys.executable, "-c", codigo])
+        parche = mock.patch.object(caster, "comando_stream", comando)
+        parche.start()
+        self.addCleanup(parche.stop)
+        return comando
+
+    def abrir(self, canal="xqc", plataforma="kick"):
+        conexion = http.client.HTTPConnection("127.0.0.1", self.panel.puerto, timeout=5)
+        conexion.request("GET", f"/api/ver?canal={canal}&plataforma={plataforma}", headers={"Cookie": f"{web.COOKIE}={self.clave}"})
+        respuesta = conexion.getresponse()
+        self.addCleanup(conexion.close)
+        return conexion, respuesta
+
+    def test_manda_lo_que_sale_del_backend_pasado_por_ffmpeg(self):
+        comando = self.backend("import sys; sys.stdout.buffer.write(b'G' * 376)")
+        r, contenido = self.pedir("GET", "/api/ver?canal=xqc&plataforma=twitch", propio=False)
+        self.assertEqual(r.status, 200)
+        self.assertEqual(r.getheader("Content-Type"), "video/mp4")
+        self.assertEqual(contenido, b"G" * 376)
+        self.assertEqual(comando.call_args[0][0], "https://twitch.tv/xqc")
+        self.assertTrue(self.esperar(lambda: not self.panel._vistas))
+
+    def test_exige_clave_y_un_pedido_valido(self):
+        comando = self.backend("pass")
+        r, _ = self.pedir("GET", "/api/ver?canal=xqc&plataforma=twitch", cookie=False)
+        self.assertEqual(r.status, 401)
+        r, _ = self.pedir("GET", "/api/ver?canal=xqc&plataforma=otra")
+        self.assertEqual(r.status, 400)
+        r, _ = self.pedir("GET", "/api/ver?plataforma=twitch")
+        self.assertEqual(r.status, 400)
+        comando.assert_not_called()
+
+    def test_cerrar_el_reproductor_mata_backend_y_ffmpeg(self):
+        self.backend("import sys\nwhile True: sys.stdout.buffer.write(b'G' * 18800)")
+        conexion, respuesta = self.abrir()
+        self.assertEqual(respuesta.read(188), b"G" * 188)
+        procesos = list(self.panel._vistas)
+        self.assertEqual(len(procesos), 2)
+        respuesta.close()
+        conexion.close()
+        self.assertTrue(self.esperar(lambda: all(p.poll() is not None for p in procesos) and not self.panel._vistas))
+
+    def test_cerrar_el_panel_mata_lo_que_se_esta_viendo(self):
+        self.backend("import sys\nwhile True: sys.stdout.buffer.write(b'G' * 18800)")
+        _, respuesta = self.abrir()
+        respuesta.read(188)
+        procesos = list(self.panel._vistas)
+        self.panel.detener()
+        self.assertTrue(self.esperar(lambda: all(p.poll() is not None for p in procesos)))
+
+    def test_un_canal_que_no_arranca_queda_en_la_actividad(self):
+        self.backend("import sys; sys.stderr.write('error: No playable streams found\\n'); sys.exit(1)")
+        r, contenido = self.pedir("GET", "/api/ver?canal=nadie&plataforma=kick")
+        self.assertEqual(contenido, b"")
+        self.assertTrue(self.esperar(lambda: any(
+            "No se pudo ver nadie" in l["texto"] and "No playable streams" in l["texto"]
+            for l in self.ctrl.log_reciente
+        )))
+
+    def test_sin_ffmpeg_avisa_en_vez_de_lanzar_el_backend(self):
+        self.backend("pass")
+        with mock.patch.object(web, "REMUX_MP4", ["ffmpeg-que-no-existe"]):
+            r, contenido = self.pedir("GET", "/api/ver?canal=xqc&plataforma=kick")
+        self.assertEqual(r.status, 503)
+        self.assertIn("ffmpeg", self.json_de(contenido)["error"])
+        self.assertFalse(self.panel._vistas)
+        self.assertTrue(any("ffmpeg" in l["texto"] for l in self.ctrl.log_reciente))
+
+
 class TestQREnElPanel(BaseWeb):
     def test_el_qr_para_el_celular_sale_como_imagen_solo_con_clave(self):
         r, _ = self.pedir("GET", "/api/qr", cookie=False)

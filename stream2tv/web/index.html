@@ -116,6 +116,15 @@ kbd {
 .sec-btn.icono { width: 44px; font-size: 17px; }
 .primario { height: 44px; border-radius: 10px; background: var(--ink); color: var(--bg); font-weight: 600; padding: 0 18px; }
 
+/* ---------- Ver aqui: el stream en el navegador ---------- */
+.ver-aqui { display: none; }
+.visor { display: grid; gap: 8px; }
+.visor video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 14px; }
+.visor.cargando video { animation: latir 1.4s ease-in-out infinite; }
+.visor-pie { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.visor-canal { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
+.visor-canal span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ---------- Que ver ---------- */
 .bloque { display: grid; gap: 6px; }
 .cab { display: flex; justify-content: space-between; align-items: baseline; }
@@ -234,7 +243,7 @@ details.log[open] summary::after { content: " ▴"; }
 .lista-atajos kbd { color: var(--ink); font-size: 12px; padding: 1px 8px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .espera, .hoja, .mini.cargando, .mini-hero.cargando, .ahora.entrar .hero { animation: none; }
+  .espera, .hoja, .mini.cargando, .mini-hero.cargando, .ahora.entrar .hero, .visor.cargando video { animation: none; }
 }
 
 /* Al final a proposito: tiene que ganarle a las reglas base de arriba. */
@@ -243,7 +252,7 @@ details.log[open] summary::after { content: " ▴"; }
   body { padding-left: 40px; padding-right: 40px; }
   main { max-width: 1200px; gap: 36px; }
   .kbd { display: inline-block; }
-  .usar-cel, .btn-atajos { display: inline-flex; }
+  .usar-cel, .btn-atajos, .ver-aqui { display: inline-flex; }
   #contenido { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 48px; align-items: start; }
   .col { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
   #ahora, .bloque-qv, .otro, .bloque-tv, .log { order: 0; }
@@ -301,8 +310,9 @@ details.log[open] summary::after { content: " ▴"; }
   .fav.vivo:hover .mini .chapa, .fav.vivo:hover .mini .num { visibility: hidden; }
   .fav-acc .tit-completo { font-size: 11px; line-height: 1.3; color: #e4e4e8; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
   .fav-acc .btns { display: flex; gap: 6px; }
-  .fav-acc .poner { height: 28px; padding: 0 10px; border-radius: 7px; background: var(--ink); color: var(--bg); font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fav-acc .poner { min-width: 0; height: 28px; padding: 0 10px; border-radius: 7px; background: var(--ink); color: var(--bg); font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .fav-acc .estrella { width: 28px; height: 28px; flex: 0 0 auto; border-radius: 7px; border: 1px solid #44444c; color: #fbbf24; font-size: 13px; }
+  .fav-acc .ver { display: grid; place-items: center; color: var(--ink); }
 }
 </style>
 </head>
@@ -332,6 +342,10 @@ details.log[open] summary::after { content: " ▴"; }
          cuentan (display: contents) y "order" deja cada bloque en su lugar:
          lo que se ve, Que ver, Otro canal (pegado a la lista), TV, Actividad. -->
     <div class="col col-izq">
+      <section class="visor" id="visor" aria-label="Viendo aquí" hidden>
+        <video id="video" controls playsinline></video>
+        <div class="visor-pie"><span class="visor-canal" id="visor-canal"></span><button class="texto-btn" type="button" data-accion="cerrar-visor">Cerrar</button></div>
+      </section>
       <section id="ahora" class="ahora"></section>
       <form class="otro" id="form">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="color: var(--muted)"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
@@ -419,6 +433,7 @@ details.log[open] summary::after { content: " ▴"; }
     twitch: '<path fill="#9146FF" d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"></path>',
     youtube: '<rect x="1" y="4.5" width="22" height="15" rx="4.5" fill="#FF0033"></rect><path d="M10 8.8v6.4l5.6-3.2z" fill="#fff"></path>'
   };
+  var ICONO_VER = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg>';
   function logo(plat, tam) {
     if (!LOGOS[plat]) return "";
     return '<svg width="' + tam + '" height="' + tam + '" viewBox="0 0 24 24" role="img" aria-label="' + NOMBRE[plat] + '">' + LOGOS[plat] + '</svg>';
@@ -553,6 +568,7 @@ details.log[open] summary::after { content: " ▴"; }
     }
     var meta, sub = "", botones = "";
     var detener = '<button class="sec-btn" type="button" data-accion="detener">Detener <kbd class="kbd" aria-hidden="true">S</kbd></button>';
+    var verAqui = '<button class="sec-btn ver-aqui" type="button" data-accion="ver">Ver aquí</button>';
     if (s.fase === "reproduciendo") {
       var partes = ["En vivo"];
       if (m !== null) partes.push(m === 0 ? "recién empezó" : m + " min");
@@ -560,14 +576,14 @@ details.log[open] summary::after { content: " ▴"; }
       if (s.anuncios) partes.push(s.anuncios === 1 ? "1 anuncio filtrado" : s.anuncios + " anuncios filtrados");
       meta = '<div class="meta"><i class="punto"></i><span>' + partes.join(" · ") + '</span></div>';
       var guardar = !esFavorito(s.canal, s.plataforma);
-      botones = '<div class="botones' + (guardar ? "" : " solo") + '">' + detener +
+      botones = '<div class="botones' + (guardar ? "" : " solo") + '">' + detener + verAqui +
         (guardar ? '<button class="sec-btn icono" type="button" data-accion="guardar" aria-label="Guardar en Qué ver">☆</button>' : "") + '</div>';
     } else if (s.fase === "reconectando") {
       // El mensaje viene como "Reconectando... intento 2 de 5".
       var intento = /intento (\d+ de \d+)/.exec(s.mensaje || "");
       meta = '<div class="meta reconectando"><i class="espera"></i><span>Reconectando…' + (intento ? " intento " + intento[1] : "") + '</span></div>';
       sub = '<div class="sub tenue">' + esc(NOMBRE[s.plataforma] || "El sitio") + ' dejó de responder. La TV sigue conectada y vuelve sola.</div>';
-      botones = '<div class="botones solo">' + detener + '</div>';
+      botones = '<div class="botones solo">' + detener + verAqui + '</div>';
     } else if (s.fase === "error") {
       meta = '<div class="meta error">' + esc(s.mensaje) + '</div>';
       sub = '<div class="sub">Probá con otro canal o volvé más tarde.</div>';
@@ -603,6 +619,7 @@ details.log[open] summary::after { content: " ▴"; }
       '</button>' +
       '<div class="fav-acc"><span class="tit-completo">' + esc(e.titulo || e.categoria || "") + '</span>' +
         '<span class="btns"><button class="poner" type="button" data-fav="' + p.i + '">▶ Poner en ' + esc(tvNombre() || "la TV") + '</button>' +
+        '<button class="estrella ver" type="button" data-ver="' + p.i + '" aria-label="Ver ' + nombre + ' aquí" title="Ver aquí">' + ICONO_VER + '</button>' +
         '<button class="estrella" type="button" data-quitar="' + p.i + '" aria-label="Quitar ' + nombre + ' de Qué ver">★</button></span></div>' +
     '</div>';
   }
@@ -717,6 +734,9 @@ details.log[open] summary::after { content: " ▴"; }
     var b = e.target.closest("button");
     if (!b || !s) return;
     var accion = b.dataset.accion;
+    if (accion === "ver") return ver({ canal: s.canal, plataforma: s.plataforma });
+    if (accion === "cerrar-visor") return cerrarVisor();
+    if (b.dataset.ver) return ver(s.favoritos[+b.dataset.ver]);
     if (accion === "detener") return pedir("/api/detener");
     if (accion === "buscar") return pedir("/api/buscar-tvs");
     if (accion === "guardar") return pedir("/api/favoritos", { canal: s.canal, plataforma: s.plataforma });
@@ -730,6 +750,41 @@ details.log[open] summary::after { content: " ▴"; }
       poner_(f);
     }
   });
+
+  // ---------- Ver aqui: el mismo stream que recibe la TV, en el navegador ----------
+  // La laptop lo manda como MP4 fragmentado, que <video> reproduce sin librerias.
+  // ponytail: no alcanza el vivo; tras un anuncio filtrado queda atrasado.
+  // Volver a tocar "Ver aquí" lo pone al dia.
+  var viendo = null;  // nombre del canal en el visor
+  function ver(f) {
+    if (!f || !f.canal) return;
+    var video = $("video"), visor = $("visor");
+    viendo = nombreVisible(f.canal);
+    poner("visor-canal", logo(f.plataforma, 16) + '<span>' + esc(viendo) + '</span>');
+    visor.classList.add("cargando");
+    visor.hidden = false;
+    video.src = "/api/ver?canal=" + encodeURIComponent(f.canal) + "&plataforma=" + encodeURIComponent(f.plataforma);
+    // Dentro del clic: asi el navegador deja arrancar con sonido.
+    video.play().catch(function () {});
+  }
+  function cerrarVisor() {
+    var video = $("video");
+    viendo = null;
+    // Sin src el navegador corta la descarga y la laptop apaga streamlink.
+    video.removeAttribute("src");
+    video.load();
+    $("visor").hidden = true;
+  }
+  // "ended": la laptop cerro el stream (canal offline o se corto el backend).
+  function cortado() {
+    if (!viendo) return;
+    var nombre = viendo, empezo = !$("visor").classList.contains("cargando");
+    cerrarVisor();
+    avisar(empezo ? nombre + " se cortó aquí." : "No se pudo ver " + nombre + " aquí. El motivo está en Actividad.");
+  }
+  $("video").addEventListener("error", cortado);
+  $("video").addEventListener("ended", cortado);
+  $("video").addEventListener("playing", function () { $("visor").classList.remove("cargando"); });
 
   // ---------- reordenar arrastrando (solo en la compu) ----------
   function ordenDelDOM() {

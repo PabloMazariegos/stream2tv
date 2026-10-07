@@ -116,7 +116,11 @@ En la compu, además:
 - **Miniaturas en vivo**: arriba, grande, la de lo que estás viendo; en "Qué ver",
   una tarjeta con miniatura por cada canal transmitiendo (los offline quedan como
   chips chicos al final). Al pasar el mouse por una tarjeta aparece el título completo
-  y los botones **▶ Poner** y **★** (quitar).
+  y los botones **▶ Poner**, **Ver aquí** (la pantallita) y **★** (quitar).
+- **Ver aquí**: el stream en el navegador, el mismo que baja la laptop para la TV
+  (con los anuncios de Twitch filtrados). Está en las tarjetas de "Qué ver" y junto a
+  **Detener**. Es una descarga aparte: podés ver un canal acá y otro en la TV.
+  Necesita `ffmpeg` instalado en la laptop.
 - **Atajos de teclado** (`?` muestra la lista): `/` escribir otro canal, `1`–`9`
   poner el canal en vivo de esa posición, `S` detener, `T` cambiar a la otra TV.
 - **Pegar y listo**: copiá un link de Twitch, Kick o YouTube y apretá `Ctrl+V` en

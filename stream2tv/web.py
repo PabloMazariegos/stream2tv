@@ -8,18 +8,21 @@ Acceso: la TUI muestra un QR con http://<ip>:8091/?t=<clave>. Esa visita deja
 la clave en una cookie del celular, y la API la exige en cada pedido.
 """
 
+import collections
 import hmac
 import http.server
 import io
 import json
 import os
 import queue
+import shutil
+import subprocess
 import sys
 import threading
 from urllib.parse import parse_qs, urlparse
 
-from . import config, discovery
-from .plataformas import PLATAFORMAS
+from . import caster, config, discovery
+from .plataformas import PLATAFORMAS, resolver_url
 
 PUERTO_DEFECTO = 8091
 COOKIE = "s2t"
@@ -39,6 +42,18 @@ ARCHIVOS = {
     "/icono-512.png": ("icono-512.png", "image/png"),
     "/sortable.min.js": ("sortable.min.js", "text/javascript; charset=utf-8"),
 }
+
+# "Ver aqui": el navegador no reproduce MPEG-TS (Kick, YouTube) y Twitch ya
+# manda MP4 fragmentado. ffmpeg pasa todo a MP4 fragmentado sin recodificar,
+# que un <video> reproduce solo, sin librerias.
+REMUX_MP4 = [
+    "ffmpeg", "-loglevel", "error", "-i", "pipe:0",
+    # Solo video y audio: el MPEG-TS de Kick trae ademas un stream de metadatos.
+    "-map", "0:v:0", "-map", "0:a:0?", "-c", "copy",
+    # El AAC del MPEG-TS viene en ADTS y el MP4 no lo acepta asi.
+    "-bsf:a", "aac_adtstoasc",
+    "-f", "mp4", "-movflags", "frag_keyframe+empty_moov+default_base_moof", "pipe:1",
+]
 
 
 class _Servidor(http.server.ThreadingHTTPServer):
@@ -62,6 +77,9 @@ class PanelWeb:
         self._httpd = None
         self._hilo = None
         self._cerrando = threading.Event()
+        # Procesos (backend y ffmpeg) que le mandan un stream a un navegador ("Ver aqui").
+        self._vistas = set()
+        self._lock_vistas = threading.Lock()
         # La pagina se lee una sola vez, al arrancar: si se leyera del disco en
         # cada visita, despues de actualizar stream2tv el celular recibiria la
         # pagina nueva hablando con una app vieja (y botones que "no existen").
@@ -89,6 +107,11 @@ class PanelWeb:
 
     def detener(self):
         self._cerrando.set()
+        # Como con la TV: un streamlink que quede vivo sigue bajando el stream.
+        with self._lock_vistas:
+            vistas = list(self._vistas)
+        for proc in vistas:
+            caster.matar_arbol(proc)
         if self._httpd is not None:
             self._httpd.shutdown()
             self._httpd.server_close()
@@ -156,6 +179,10 @@ class PanelWeb:
                     if not self._autorizado():
                         return self._json(401, {"error": "sin acceso"})
                     return self._eventos()
+                if url.path == "/api/ver":
+                    if not self._autorizado():
+                        return self._json(401, {"error": "sin acceso"})
+                    return self._ver({k: v[0] for k, v in parse_qs(url.query).items()})
                 self._json(404, {"error": "no existe"})
 
             def _entrar_con_clave(self, clave):
@@ -218,6 +245,82 @@ class PanelWeb:
             def _evento_sse(self, evento, datos):
                 self.wfile.write(f"event: {evento}\ndata: {json.dumps(datos)}\n\n".encode())
                 self.wfile.flush()
+
+            def _ver(self, datos):
+                """El mismo stream que recibe la TV (con los anuncios de Twitch
+                filtrados), para verlo en el navegador. Es otra descarga, aparte
+                de la de la TV: se puede ver un canal aca y otro en la TV."""
+                pedido = self._canal_y_plataforma(datos)
+                if pedido is None:
+                    return
+                canal, plataforma = pedido
+                try:
+                    comando = caster.comando_stream(
+                        resolver_url(canal, plataforma), ctrl.calidad, ctrl.low_latency, ctrl.backend
+                    )
+                    if shutil.which(REMUX_MP4[0]) is None:
+                        raise caster.FaltaBackend("ffmpeg no esta instalado: hace falta para ver en el navegador")
+                except caster.FaltaBackend as e:
+                    ctrl.log(str(e), "error")
+                    return self._json(503, {"error": str(e)})
+                backend = subprocess.Popen(
+                    comando, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True
+                )
+                remux = subprocess.Popen(
+                    REMUX_MP4,
+                    stdin=backend.stdout,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    bufsize=0,
+                    start_new_session=True,
+                )
+                # ffmpeg queda como unico lector: si muere, el backend recibe SIGPIPE.
+                backend.stdout.close()
+                procesos = (backend, remux)
+                errores = collections.deque(maxlen=caster.LINEAS_STDERR)
+                lectores = [
+                    threading.Thread(target=caster._juntar_stderr, args=(p, errores), daemon=True)
+                    for p in procesos
+                ]
+                for lector in lectores:
+                    lector.start()
+                with panel._lock_vistas:
+                    panel._vistas.update(procesos)
+                self.send_response(200)
+                self.send_header("Content-Type", "video/mp4")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.close_connection = True
+                recibio = fin_normal = False
+                # ponytail: sin reintentos, a diferencia de la TV; si el backend
+                # se cae, el navegador avisa y se vuelve a tocar "Ver aqui".
+                try:
+                    while True:
+                        chunk = remux.stdout.read(64 * 1024)
+                        if not chunk:
+                            fin_normal = True
+                            break
+                        recibio = True
+                        self.wfile.write(chunk)
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    pass  # el navegador cerro el reproductor
+                finally:
+                    for proc in procesos:
+                        caster.matar_arbol(proc)
+                    for lector in lectores:
+                        lector.join(timeout=2)
+                    remux.stdout.close()
+                    for proc in procesos:
+                        proc.stderr.close()
+                    with panel._lock_vistas:
+                        panel._vistas.difference_update(procesos)
+                if fin_normal and not panel._cerrando.is_set():
+                    motivo = " | ".join(list(errores)[-3:]) or "sin detalle"
+                    if recibio:
+                        ctrl.log(f"Se corto {canal} en el navegador: {motivo}", "error")
+                    else:
+                        ctrl.log(f"No se pudo ver {canal} en el navegador: {motivo}", "error")
 
             # ---------- POST ----------
 
