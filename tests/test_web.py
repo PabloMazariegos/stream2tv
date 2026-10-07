@@ -219,6 +219,34 @@ class TestAcciones(BaseWeb):
         r, contenido = self.pedir("POST", "/api/favoritos", {"canal": "xqc", "plataforma": "twitch"})
         self.assertFalse(self.json_de(contenido)["agregado"])
 
+    def agregados(self):
+        _, contenido = self.pedir("GET", "/api/estado")
+        return [f["canal"] for f in self.json_de(contenido)["agregados"]]
+
+    def test_agregados_el_ultimo_arriba_sin_repetir(self):
+        for canal in ("uno", "dos", "UNO"):
+            r, _ = self.pedir("POST", "/api/agregados", {"canal": canal, "plataforma": "kick"})
+            self.assertEqual(r.status, 200)
+        self.assertEqual(self.agregados(), ["UNO", "dos"])
+        self.pedir("POST", "/api/agregados/quitar", {"canal": "dos", "plataforma": "kick"})
+        self.assertEqual(self.agregados(), ["UNO"])
+        r, _ = self.pedir("POST", "/api/agregados", {"canal": "", "plataforma": "kick"})
+        self.assertEqual(r.status, 400)
+
+    def test_agregados_tiene_tope(self):
+        for i in range(config.MAX_AGREGADOS + 3):
+            self.pedir("POST", "/api/agregados", {"canal": f"c{i}", "plataforma": "kick"})
+        self.assertEqual(len(self.agregados()), config.MAX_AGREGADOS)
+        self.assertEqual(self.agregados()[0], f"c{config.MAX_AGREGADOS + 2}")
+
+    def test_guardar_un_agregado_lo_pasa_a_favoritos(self):
+        self.pedir("POST", "/api/agregados", {"canal": "https://kick.com/x", "plataforma": "kick"})
+        self.pedir("POST", "/api/favoritos", {"canal": "https://kick.com/x", "plataforma": "kick"})
+        self.assertEqual(self.agregados(), [])
+        # Y un favorito no vuelve a "Agregados" si se lo abre de nuevo.
+        self.pedir("POST", "/api/agregados", {"canal": "https://kick.com/x", "plataforma": "kick"})
+        self.assertEqual(self.agregados(), [])
+
     def test_reordenar_favoritos(self):
         for canal in ("uno", "dos", "tres"):
             config.alternar_favorito(canal, "kick")

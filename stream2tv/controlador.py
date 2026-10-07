@@ -130,6 +130,7 @@ class Controlador:
                 for tv in self.tvs
             ],
             "favoritos": config.favoritos(),
+            "agregados": config.agregados(),
             "anuncios": self.anuncios,
             "plataforma_inicial": self.plataforma_inicial,
             "en_vivo": self.en_vivo,
@@ -236,12 +237,23 @@ class Controlador:
         self._emitir("estado", self.estado())
         return True
 
+    # ---------- agregados: links y canales abiertos que no son favoritos ----------
+
+    def agregar(self, canal, plataforma):
+        if config.agregar(canal, plataforma):
+            self._despertar_sondeo.set()
+            self._emitir("estado", self.estado())
+
+    def quitar_agregado(self, canal, plataforma):
+        if config.quitar_agregado(canal, plataforma):
+            self._emitir("estado", self.estado())
+
     # ---------- favoritos en vivo ----------
 
     def actualizar_en_vivo(self):
-        """Consulta a las plataformas quien de los favoritos transmite. Bloqueante."""
+        """Consulta a las plataformas quien de los favoritos y agregados transmite. Bloqueante."""
         try:
-            self.en_vivo = envivo.consultar(config.favoritos())
+            self.en_vivo = envivo.consultar(config.favoritos() + config.agregados())
         except Exception as e:
             # Se avisa una vez por racha de fallas, no en cada vuelta.
             if not self._sondeo_fallando:

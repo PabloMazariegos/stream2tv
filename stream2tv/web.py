@@ -350,6 +350,8 @@ class PanelWeb:
                     "/api/buscar-tvs": self._buscar_tvs,
                     "/api/favoritos": self._favorito,
                     "/api/favoritos/orden": self._orden_favoritos,
+                    "/api/agregados": self._agregar,
+                    "/api/agregados/quitar": self._quitar_agregado,
                 }
                 accion = acciones.get(urlparse(self.path).path)
                 if accion is None:
@@ -407,6 +409,20 @@ class PanelWeb:
                     return
                 agregado = ctrl.alternar_favorito(*pedido)
                 self._json(200, {"ok": True, "agregado": agregado})
+
+            def _agregar(self, datos):
+                pedido = self._canal_y_plataforma(datos)
+                if pedido is None:
+                    return
+                ctrl.agregar(*pedido)
+                self._json(200, {"ok": True})
+
+            def _quitar_agregado(self, datos):
+                pedido = self._canal_y_plataforma(datos)
+                if pedido is None:
+                    return
+                ctrl.quitar_agregado(*pedido)
+                self._json(200, {"ok": True})
 
             def _orden_favoritos(self, datos):
                 orden = datos.get("orden")

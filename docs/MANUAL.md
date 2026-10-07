@@ -93,44 +93,46 @@ Se abre el panel en el navegador de la compu, ya autorizado, y la terminal muest
 dirección y un código QR para el celular. Dejá esa terminal abierta mientras lo usás:
 `Ctrl+C` (o cerrarla) apaga todo y detiene la TV.
 
-En el panel:
+El panel es tu plataforma de streaming: mirás los streams ahí mismo y, cuando
+querés, los mandás a la TV.
 
-- **Arriba**, lo que se está viendo y en qué TV, con el botón **Detener**.
-- **Qué ver**: tus favoritos. Los que están transmitiendo aparecen arriba, con el
-  juego, el título y los espectadores; los que no, abajo en gris. Se consulta a
-  Twitch, Kick y YouTube cada 90 segundos. **Editar** sirve para quitar favoritos, y
-  la ☆ al lado de Detener guarda el canal que estás mirando.
-- **Otro canal o link**: escribís un canal y elegís la plataforma con el logo de la
-  derecha, o pegás un link completo de cualquier sitio.
-- **TV**: las TVs de la red. Tocás una para elegirla (queda como la de siempre para la
-  próxima vez) y el lápiz para ponerle un nombre.
+- **El reproductor** (a la izquierda en la compu, arriba en el celular): tocá un
+  stream de la lista y se ve ahí, el mismo que baja la laptop para la TV (con los
+  anuncios de Twitch filtrados). Necesita `ffmpeg` instalado en la laptop. Abajo,
+  **Enviar a <TV>** lo pone en la TV y la ☆ lo guarda en favoritos.
+- **El buscador de arriba**: pegás un link de cualquier sitio, o escribís un canal y
+  elegís la plataforma con el logo de la derecha. Se ve en el reproductor, no hace
+  falta tener una TV elegida.
+- **Favoritos**: los que están transmitiendo aparecen arriba, con miniatura, juego,
+  título y espectadores; los que no, abajo. Se consulta a Twitch, Kick y YouTube cada
+  90 segundos. **Editar** sirve para quitarlos.
+- **Agregados**: los links y canales que abriste y no son favoritos (los últimos 12).
+  La ☆ los pasa a favoritos y la ✕ los quita de la lista.
+- **Enviar a** (el botón de la TV, arriba a la derecha): las TVs de la red. Tocás una
+  para elegirla (queda como la de siempre) y el lápiz para ponerle un nombre. Si no hay
+  ninguna, el panel sigue funcionando para ver aquí.
+- **En la TV**: debajo del reproductor, lo que está sonando en la TV, con **Detener**.
 - **Actividad**: todo lo que pasó (también se ve en la terminal).
 
-Podés cambiar de canal sin detener: el anterior se corta solo. Si Kick, Twitch o
-YouTube dejan de responder un momento, el stream se reconecta solo ("Reconectando…").
-
-En la compu el panel se ve en dos columnas; en el celular, en una. Es la misma página.
+Cada fila de la lista tiene también el botón de la TV para mandarla directo. Podés
+cambiar de canal en la TV sin detener: el anterior se corta solo. Si Kick, Twitch o
+YouTube dejan de responder un momento, el stream de la TV se reconecta solo
+("Reconectando…"). Ver aquí es una descarga aparte: podés ver un canal acá y otro en
+la TV.
 
 En la compu, además:
 
-- **Miniaturas en vivo**: arriba, grande, la de lo que estás viendo; en "Qué ver",
-  una tarjeta con miniatura por cada canal transmitiendo (los offline quedan como
-  chips chicos al final). Al pasar el mouse por una tarjeta aparece el título completo
-  y los botones **▶ Poner**, **Ver aquí** (la pantallita) y **★** (quitar).
-- **Ver aquí**: el stream en el navegador, el mismo que baja la laptop para la TV
-  (con los anuncios de Twitch filtrados). Está en las tarjetas de "Qué ver" y junto a
-  **Detener**. Es una descarga aparte: podés ver un canal acá y otro en la TV.
-  Necesita `ffmpeg` instalado en la laptop.
-- **Atajos de teclado** (`?` muestra la lista): `/` escribir otro canal, `1`–`9`
-  poner el canal en vivo de esa posición, `S` detener, `T` cambiar a la otra TV.
+- **Atajos de teclado** (`?` muestra la lista): `/` buscar, `1`–`9` ver el favorito
+  en vivo de esa posición, `E` enviar a la TV lo que estás viendo, `S` detener la TV,
+  `T` cambiar a la otra TV.
 - **Pegar y listo**: copiá un link de Twitch, Kick o YouTube y apretá `Ctrl+V` en
-  cualquier parte del panel. Se pone en la TV, con un aviso para deshacer.
-- **Reordenar**: arrastrá las tarjetas para cambiar el orden de "Qué ver".
+  cualquier parte del panel. Se ve en el reproductor.
+- **Reordenar**: arrastrá los favoritos para cambiar el orden.
 
 ### En el celular
 
 1. Escaneá con la cámara el QR que muestra la terminal al arrancar, o el del botón
-   **Usar en el celular** del panel en la compu.
+   **Celular** del panel en la compu.
 2. Listo: el celular queda autorizado por un año. Desde el menú del navegador podés
    agregarlo a la pantalla de inicio y abre como una app.
 
@@ -242,7 +244,7 @@ En orden de probabilidad:
   sudo ufw allow from 192.168.1.0/24 to any port 8091 proto tcp
   ```
 - Si dice *Este celular no tiene acceso*, volvé a escanear el QR (el de la terminal o
-  el del botón **Usar en el celular**). Pasa si
+  el del botón **Celular** del panel). Pasa si
   se renovó la clave o si borraste los datos del navegador.
 
 ### `Address already in use`

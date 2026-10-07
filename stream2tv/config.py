@@ -152,6 +152,43 @@ def alternar_favorito(canal, plataforma):
     agregado = len(restantes) == len(lista)
     if agregado:
         restantes.append({"canal": canal, "plataforma": plataforma})
+        # Guardar un link de "Agregados" lo pasa a favoritos, no lo duplica.
+        datos["agregados"] = [f for f in datos.get("agregados", []) if not _mismo(f, canal, plataforma)]
     datos["favoritos"] = restantes
     guardar(datos)
     return agregado
+
+
+MAX_AGREGADOS = 12
+
+
+def _mismo(f, canal, plataforma):
+    return f["canal"].lower() == canal.lower() and f["plataforma"] == plataforma
+
+
+def agregados():
+    """Canales y links abiertos en el panel que no son favoritos; el ultimo primero."""
+    return cargar().get("agregados", [])
+
+
+def agregar(canal, plataforma):
+    """Pone un canal arriba de "Agregados". Un favorito no se repite ahi: devuelve False."""
+    datos = cargar()
+    if any(_mismo(f, canal, plataforma) for f in datos.get("favoritos", [])):
+        return False
+    resto = [f for f in datos.get("agregados", []) if not _mismo(f, canal, plataforma)]
+    datos["agregados"] = ([{"canal": canal, "plataforma": plataforma}] + resto)[:MAX_AGREGADOS]
+    guardar(datos)
+    return True
+
+
+def quitar_agregado(canal, plataforma):
+    """Devuelve True si estaba y se quito."""
+    datos = cargar()
+    lista = datos.get("agregados", [])
+    restantes = [f for f in lista if not _mismo(f, canal, plataforma)]
+    if len(restantes) == len(lista):
+        return False
+    datos["agregados"] = restantes
+    guardar(datos)
+    return True

@@ -9,10 +9,11 @@
 <link rel="apple-touch-icon" href="/icono-192.png">
 <title>stream2tv</title>
 <style>
-/* Oscuro y limpio: sin cajas, un solo color de estado (el rojo de "en vivo")
-   y los logos y miniaturas de cada plataforma como unico toque de color.
-   Sin fuentes externas: el panel tiene que andar aunque no haya internet
-   (las miniaturas vienen de internet; si no cargan, el panel sigue igual). */
+/* Una plataforma de streaming personal: el reproductor manda (a la izquierda
+   en la compu, arriba en el celular), al lado la lista de streams, y la TV es
+   un destino mas ("Enviar a"). Oscuro, sin fuentes externas: el panel tiene
+   que andar aunque no haya internet (las miniaturas vienen de internet; si no
+   cargan, el panel sigue igual). */
 :root {
   color-scheme: dark;
   --bg: #0c0c0e;
@@ -34,14 +35,10 @@
 /* Sin esto, una clase con display gana sobre el atributo hidden. */
 [hidden] { display: none !important; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); }
-body {
-  font: 14px/1.45 var(--sans);
-  padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px calc(env(safe-area-inset-bottom, 0px) + 32px);
-  -webkit-tap-highlight-color: transparent;
-}
-main { max-width: 480px; margin: 0 auto; display: grid; gap: 30px; }
+body { font: 14px/1.45 var(--sans); -webkit-tap-highlight-color: transparent; }
 button, input { font: inherit; color: inherit; }
 button { background: none; border: 0; padding: 0; cursor: pointer; }
+button:disabled { cursor: default; opacity: .5; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
 svg { display: block; flex: 0 0 auto; }
 img { max-width: 100%; }
@@ -51,162 +48,191 @@ kbd {
 }
 /* Las pistas de teclado solo tienen sentido en la compu. */
 .kbd { display: none; }
-
-/* ---------- orden: en el celular las columnas no cuentan ---------- */
-#contenido { display: flex; flex-direction: column; gap: 30px; }
-.col { display: contents; }
-#ahora { order: 1; }
-.bloque-qv { order: 2; }
-.otro { order: 3; }
-.bloque-tv { order: 4; }
-.log { order: 5; }
-
-/* ---------- encabezado ---------- */
-.top { position: relative; display: flex; justify-content: space-between; align-items: center; }
-.marca { font-weight: 650; font-size: 15px; letter-spacing: -0.01em; }
-.top-der { display: flex; align-items: center; gap: 20px; }
-.con { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
-.con i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
-.con.off i { background: var(--vivo); }
-.usar-cel, .btn-atajos { display: none; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); min-height: 32px; }
-.cuadro-qr {
-  position: absolute; right: 0; top: calc(100% + 10px); z-index: 5; width: 240px;
-  background: var(--capa); border: 1px solid var(--borde); border-radius: 16px; padding: 18px;
-  display: flex; flex-direction: column; gap: 10px; box-shadow: 0 18px 40px rgba(0, 0, 0, .5);
-}
-.cuadro-qr img { align-self: center; border-radius: 10px; background: #fff; }
-.cuadro-qr p { margin: 0; font-size: 12px; color: var(--muted); }
-.cuadro-qr small { font-size: 11px; color: var(--tenue); overflow-wrap: anywhere; }
-
-/* ---------- lo que esta en la TV ---------- */
-.ahora { display: grid; gap: 4px; }
-.ahora.entrar .hero { animation: aparecer .4s ease-out; }
-@keyframes aparecer { from { opacity: 0; transform: translateY(4px); } }
-.hero { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; }
-.hero.sin-mini { grid-template-columns: minmax(0, 1fr); }
-.mini-hero { position: relative; width: 112px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: var(--hueco); }
-.mini-hero img, .mini img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.mini-hero.cargando, .mini.cargando { animation: latir 1.4s ease-in-out infinite; }
-.chapa {
-  position: absolute; display: none; align-items: center; gap: 6px; background: rgba(12, 12, 14, .8);
-  border-radius: 999px; padding: 3px 9px; font-size: 12px; font-weight: 600; white-space: nowrap;
-}
-.chapa i { width: 7px; height: 7px; border-radius: 50%; background: var(--vivo); }
-.hero-info { display: grid; gap: 4px; min-width: 0; }
-.donde { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.titulo { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.canal { font-size: 28px; line-height: 1.15; font-weight: 650; letter-spacing: -0.02em; overflow-wrap: anywhere; min-width: 0; }
-.hero:not(.sin-mini) .canal { font-size: 22px; }
-.vacio { font-size: 20px; font-weight: 600; color: var(--muted); }
-.meta { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; }
-/* El texto va en su propio span: si no entra, baja de renglon al lado del punto. */
-.meta > span { min-width: 0; }
-.meta.error { color: var(--vivo); }
-.punto { width: 8px; height: 8px; border-radius: 50%; background: var(--vivo); flex: 0 0 auto; }
-.espera { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); animation: latir 1.1s ease-in-out infinite; }
-.meta.reconectando { color: var(--ambar); }
-.meta.reconectando .espera { background: var(--ambar); }
 @keyframes latir { 50% { opacity: .35; } }
-.sub { font-size: 12px; color: var(--muted); }
-.sub.tenue { color: var(--tenue); }
-.de-que { font-size: 12px; color: var(--tenue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.botones { display: flex; gap: 8px; margin-top: 10px; }
-.sec-btn { height: 44px; border-radius: 10px; border: 1px solid var(--borde); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
-.sec-btn.icono { width: 44px; font-size: 17px; }
 
-/* ---------- Ver aqui: el stream en el navegador ---------- */
-.visor { display: grid; gap: 8px; }
-.visor video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 14px; }
-.visor.cargando video { animation: latir 1.4s ease-in-out infinite; }
-.visor-pie { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.visor-canal { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
-.visor-canal span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* ---------- Que ver ---------- */
-.bloque { display: grid; gap: 6px; }
-.cab { display: flex; justify-content: space-between; align-items: baseline; }
-.cab h2 { margin: 0; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-.cuantos { font-weight: 400; font-size: 13px; color: var(--muted); }
-.accion { font-size: 13px; color: var(--muted); min-height: 32px; }
-.fav { position: relative; border-top: 1px solid var(--line); }
-#favs-vivo > .fav:first-child, #favs-vivo:empty + #favs-off > .fav:first-child { border-top: 0; }
-.fav-sel { width: 100%; text-align: left; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 46px; }
-.fav.vivo .fav-sel { grid-template-columns: 64px minmax(0, 1fr) auto; min-height: 56px; }
-.mini { position: relative; width: 64px; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: var(--hueco); }
-.fav.actual .mini { box-shadow: inset 0 0 0 1.5px var(--vivo); }
-.mini-logo { position: absolute; left: 3px; bottom: 3px; z-index: 1; background: var(--bg); border-radius: 4px; padding: 1px; }
-.fav.vivo .n > svg { display: none; }
-.mini .num, .mini .chapa { display: none; }
-.n { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.n span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.n small { display: block; font-size: 11px; color: var(--tenue); }
-/* De que se trata el stream: tenue, para que mande el nombre del canal. */
-.n .tit { margin-top: 1px; line-height: 1.3; }
-.der { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.der i { width: 6px; height: 6px; border-radius: 50%; background: var(--vivo); }
-.der.en-tv { color: var(--vivo); }
-.der.quitar { color: var(--vivo); font-size: 13px; }
-.fav.off .n { color: var(--muted); }
-.fav.off svg { opacity: .45; }
-.fav-acc { display: none; }
-.offline-titulo { display: none; }
-.fav.sortable-ghost { opacity: .35; }
-
-/* ---------- Otro canal o link ---------- */
-.otro {
-  position: relative; display: flex; align-items: center; gap: 12px; min-height: 52px;
-  background: var(--campo); border-radius: 12px; padding: 0 10px 0 16px;
+/* ---------- estructura: en el celular, una sola columna ---------- */
+.app {
+  display: grid; gap: 16px;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px calc(env(safe-area-inset-bottom, 0px) + 32px);
 }
-.otro input {
-  /* 16px a proposito: con menos, el iPhone hace zoom al tocar el campo. */
-  /* width 0: sin esto el ancho propio del input ensanchaba la pagina en celulares angostos. */
-  flex: 1; width: 0; min-width: 0; height: 44px; border: 0; background: transparent; padding: 0;
+.contenido { display: grid; gap: 22px; }
+.escenario { display: grid; gap: 14px; min-width: 0; align-content: start; }
+.lista { display: grid; gap: 18px; min-width: 0; align-content: start; }
+
+/* ---------- encabezado: marca, buscador de links y la TV ---------- */
+.top { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 8px; }
+.marca { font-weight: 650; font-size: 16px; letter-spacing: -0.01em; margin-right: auto; }
+.top-der { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.con { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.con i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+.con.off i { background: var(--vivo); }
+.btn-top {
+  display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; min-width: 0;
+  border-radius: 10px; border: 1px solid var(--borde); font-size: 13px; white-space: nowrap;
+}
+.btn-top:hover, .btn-top[aria-expanded="true"] { background: #1b1b20; border-color: #3a3a42; }
+.btn-tv span { overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.btn-tv i { width: 7px; height: 7px; border-radius: 50%; background: var(--vivo); display: none; }
+.btn-tv.en-uso i { display: block; }
+.usar-cel, .btn-atajos { display: none; }
+
+.buscar {
+  order: 3; flex: 1 0 100%; position: relative; display: flex; align-items: center; gap: 10px;
+  height: 48px; padding: 0 6px 0 14px; background: var(--campo); border: 1px solid var(--borde); border-radius: 12px;
+}
+.buscar:focus-within { border-color: #4a4a55; }
+.buscar > svg { color: var(--muted); }
+.buscar input {
+  /* 16px a proposito: con menos, el iPhone hace zoom al tocar el campo.
+     width 0: sin esto el ancho propio del input ensanchaba la pagina en celulares angostos. */
+  flex: 1; width: 0; min-width: 0; height: 100%; border: 0; background: transparent; padding: 0;
   font-size: 16px; outline: none;
 }
-.otro input::placeholder { color: var(--muted); }
-.ir { width: 36px; height: 36px; border-radius: 50%; background: var(--ink); color: var(--bg); display: grid; place-items: center; }
-.ir:disabled { opacity: .35; cursor: default; }
-.plat { display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 8px; color: var(--muted); font-size: 10px; border-radius: 9px; border: 1px solid transparent; }
+.buscar input::placeholder { color: var(--muted); }
+.ir { width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: var(--bg); display: grid; place-items: center; flex: 0 0 auto; }
+.plat { display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 8px; color: var(--muted); font-size: 10px; border-radius: 9px; border: 1px solid transparent; flex: 0 0 auto; }
 .plat[aria-expanded="true"] { border-color: #3a3a42; background: #232328; }
-/* Menu propio: la lista nativa del navegador salia gris y casi no se leia. */
-.menu-plat {
-  position: absolute; right: 0; top: calc(100% + 6px); z-index: 6; width: 200px;
-  background: var(--capa); border: 1px solid var(--borde); border-radius: 12px; padding: 6px;
-  display: flex; flex-direction: column; box-shadow: 0 16px 36px rgba(0, 0, 0, .55);
+
+/* Capas que cuelgan del encabezado: plataforma, TVs y QR. */
+.cuadro {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 6;
+  background: var(--capa); border: 1px solid var(--borde); border-radius: 14px; box-shadow: 0 18px 40px rgba(0, 0, 0, .5);
 }
+/* Menu propio: la lista nativa del navegador salia gris y casi no se leia. */
+.menu-plat { width: 200px; padding: 6px; display: flex; flex-direction: column; top: calc(100% + 6px); }
 .opcion { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 10px; border-radius: 8px; text-align: left; }
 .opcion span { flex: 1; }
 .opcion:hover, .opcion:focus-visible { background: #222228; outline: none; }
 .opcion[aria-selected="true"] { background: #26262c; font-weight: 600; }
+.cuadro-tv { width: min(340px, calc(100vw - 32px)); padding: 2px 14px 10px; }
+.cuadro-qr { width: 240px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+.cuadro-qr img { align-self: center; border-radius: 10px; background: #fff; }
+.cuadro-qr p { margin: 0; font-size: 12px; color: var(--muted); }
+.cuadro-qr small { font-size: 11px; color: var(--tenue); overflow-wrap: anywhere; }
 
-/* ---------- TVs ---------- */
+/* ---------- el reproductor ---------- */
+.pantalla { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; }
+.pantalla video { position: absolute; inset: 0; width: 100%; height: 100%; background: #000; }
+.pantalla.cargando video { animation: latir 1.4s ease-in-out infinite; }
+.portada { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; background: var(--hueco); }
+.portada img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.portada::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle, rgba(0, 0, 0, .15), rgba(0, 0, 0, .55)); }
+.pantalla.viendo .portada { display: none; }
+.play {
+  position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 24px 0 20px;
+  border-radius: 26px; background: rgba(244, 244, 245, .96); color: var(--bg); font-weight: 650; font-size: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
+}
+.play:hover { background: #fff; }
+.nota-portada { position: absolute; z-index: 1; left: 0; right: 0; bottom: 16px; text-align: center; font-size: 13px; color: #d4d4da; }
+.portada-vacia { position: relative; z-index: 1; text-align: center; color: var(--muted); padding: 20px; max-width: 36ch; }
+.portada-vacia b { display: block; color: var(--ink); font-size: 17px; margin-bottom: 4px; }
+
+/* Lo que se eligio: nombre, de que se trata y que hacer con eso. */
+.info { display: grid; gap: 6px; min-width: 0; }
+.info-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+.info-nombre { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.info-nombre h1 { margin: 0; font-size: 22px; line-height: 1.15; font-weight: 650; letter-spacing: -0.02em; overflow-wrap: anywhere; min-width: 0; }
+.chapa-vivo { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--vivo); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .05em; }
+.cifra { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.de-que { font-size: 13px; color: var(--muted); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 42px; padding: 0 16px; min-width: 0;
+  border-radius: 10px; border: 1px solid var(--borde); font-weight: 600; white-space: nowrap;
+}
+.btn > span { overflow: hidden; text-overflow: ellipsis; }
+.btn:hover:not(:disabled) { background: #1b1b20; }
+.btn.primario { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn.primario:hover:not(:disabled) { background: #fff; }
+.btn.icono { width: 42px; padding: 0; font-size: 18px; }
+.btn.chico { height: 34px; padding: 0 12px; font-size: 13px; border-radius: 9px; }
+.estrella { color: #fbbf24; }
+
+/* La franja de lo que esta sonando en la TV. */
+.franja {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 10px;
+  background: var(--seccion); border: 1px solid var(--line); border-radius: 12px;
+}
+.franja .mini { width: 96px; }
+.franja-txt { flex: 1 1 180px; min-width: 0; display: grid; gap: 1px; }
+.franja-donde { font-size: 12px; color: var(--muted); }
+.franja-canal { display: flex; align-items: center; gap: 7px; font-weight: 600; min-width: 0; }
+.franja-canal span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.franja-btns { display: flex; gap: 6px; margin-left: auto; }
+.meta { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; }
+.meta > span { min-width: 0; }
+.meta.error { color: var(--vivo); }
+.meta.reconectando { color: var(--ambar); }
+.punto { width: 7px; height: 7px; border-radius: 50%; background: var(--vivo); flex: 0 0 auto; }
+.espera { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: 0 0 auto; animation: latir 1.1s ease-in-out infinite; }
+.meta.reconectando .espera { background: var(--ambar); }
+
+/* ---------- la lista de streams ---------- */
+.seccion { display: grid; gap: 2px; align-content: start; }
+.cab { display: flex; justify-content: space-between; align-items: center; min-height: 40px; padding: 0 4px; }
+.cab h2 { margin: 0; font-size: 15px; font-weight: 650; display: flex; align-items: baseline; gap: 8px; }
+.cuantos { font-weight: 400; font-size: 13px; color: var(--muted); }
+.accion { font-size: 13px; color: var(--muted); min-height: 32px; }
+.fila { position: relative; display: flex; align-items: center; border-radius: 10px; min-width: 0; }
+.fila.sel { background: #1a1a20; }
+.fila-sel { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 6px; text-align: left; border-radius: 10px; }
+.mini { position: relative; flex: 0 0 auto; width: 120px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: var(--hueco); }
+.mini img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mini.cargando { animation: latir 1.4s ease-in-out infinite; }
+.fila.sel .mini { box-shadow: 0 0 0 2px var(--ink); }
+.chapa {
+  position: absolute; right: 5px; bottom: 5px; display: flex; align-items: center; gap: 5px;
+  background: rgba(12, 12, 14, .82); border-radius: 5px; padding: 1px 6px; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.chapa i { width: 6px; height: 6px; border-radius: 50%; background: var(--vivo); }
+.mini .num { position: absolute; left: 5px; top: 5px; color: var(--ink); background: rgba(12, 12, 14, .82); border: 0; font-size: 10px; font-weight: 700; }
+.logo-caja { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px; background: var(--hueco); display: grid; place-items: center; }
+.fila-txt { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.fila-nombre { display: flex; align-items: center; gap: 6px; font-weight: 600; min-width: 0; }
+.fila-nombre > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fila-txt small { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fila.vivo .fila-txt small { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.35; }
+.fila.off .fila-nombre { font-weight: 500; color: #c9c9d1; }
+.chip-tv { font-style: normal; font-size: 11px; font-weight: 600; color: var(--vivo); white-space: nowrap; }
+.fila-acc { flex: 0 0 auto; display: flex; gap: 2px; padding-right: 4px; }
+.mini-btn { width: 36px; height: 36px; border-radius: 9px; color: var(--muted); display: grid; place-items: center; font-size: 15px; }
+.mini-btn:hover { background: #24242a; color: var(--ink); }
+.mini-btn.quitar { color: var(--vivo); }
+.fila.sortable-ghost { opacity: .35; }
+.vacio-lista { margin: 0; padding: 4px 6px 8px; font-size: 13px; color: var(--muted); }
+.arrastrar { font-size: 12px; color: var(--tenue); margin: 6px 6px 0; }
+
+/* ---------- TVs (dentro del cuadro "Enviar a") ---------- */
 .fila-tv { display: flex; align-items: center; border-top: 1px solid var(--line); }
 #tvs > .fila-tv:first-child { border-top: 0; }
-.tv-sel { flex: 1; min-width: 0; min-height: 52px; display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; text-align: left; }
+.tv-sel { flex: 1; min-width: 0; min-height: 52px; display: grid; grid-template-columns: minmax(0, 1fr) 24px; align-items: center; gap: 8px; text-align: left; }
+.tv-sel b { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-sel small { display: block; font-size: 11px; color: var(--tenue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-sel .check { text-align: center; font-size: 15px; }
-.lapiz { width: 44px; height: 44px; color: var(--muted); display: grid; place-items: center; flex: 0 0 auto; }
-.sin-tvs { margin: 0; padding: 4px 0 14px; font-size: 13px; color: var(--muted); max-width: 46ch; }
+.lapiz { width: 40px; height: 40px; color: var(--muted); display: grid; place-items: center; flex: 0 0 auto; }
+.sin-tvs { margin: 0; padding: 4px 0 8px; font-size: 13px; color: var(--muted); }
 
 /* ---------- actividad, estados especiales y avisos ---------- */
-details.log summary { list-style: none; cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
+details.log summary { list-style: none; cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 4px; }
 details.log summary::-webkit-details-marker { display: none; }
 details.log summary::after { content: " ▾"; }
 details.log[open] summary::after { content: " ▴"; }
-.log-lineas { display: grid; gap: 6px; padding-top: 6px; font-size: 12px; color: var(--muted); }
+.log-lineas { display: grid; gap: 6px; padding: 6px 4px 0; font-size: 12px; color: var(--muted); }
 .log-lineas b { font-weight: 400; color: var(--ink); }
 .log-lineas .error b { color: var(--vivo); }
-.centro { display: grid; gap: 10px; justify-items: start; padding-top: 18vh; }
+.centro { display: grid; gap: 10px; justify-items: start; padding-top: 18vh; max-width: 480px; margin: 0 auto; }
 .centro h2 { margin: 0; font-size: 20px; letter-spacing: -0.02em; }
 .centro p { margin: 0; color: var(--muted); font-size: 14px; max-width: 34ch; }
 .cargando-txt { color: var(--muted); font-size: 13px; }
 .aviso {
-  position: fixed; left: 20px; right: 20px; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); z-index: 8;
+  position: fixed; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); z-index: 8;
   max-width: 480px; margin: 0 auto; background: var(--capa); border: 1px solid var(--borde);
   border-radius: 12px; padding: 12px 14px; font-size: 13px; display: flex; align-items: center; gap: 12px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, .45);
 }
 .aviso span { flex: 1; min-width: 0; }
-.aviso button { color: var(--muted); font-size: 13px; min-height: 32px; }
+.aviso button { color: var(--ink); font-weight: 600; font-size: 13px; min-height: 32px; }
 
 /* ---------- capas: hoja para renombrar y ayuda de atajos ---------- */
 .velo { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, .55); }
@@ -232,7 +258,7 @@ details.log[open] summary::after { content: " ▴"; }
 .guardar { height: 50px; border-radius: 12px; background: var(--ink); color: var(--bg); font-weight: 600; font-size: 15px; }
 .texto-btn { font-size: 13px; color: var(--muted); min-height: 32px; }
 .dialogo {
-  position: fixed; z-index: 11; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100% - 40px));
+  position: fixed; z-index: 11; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100% - 40px));
   background: var(--capa); border: 1px solid var(--borde); border-radius: 16px; padding: 22px;
   display: flex; flex-direction: column; gap: 14px;
 }
@@ -243,157 +269,110 @@ details.log[open] summary::after { content: " ▴"; }
 .lista-atajos kbd { color: var(--ink); font-size: 12px; padding: 1px 8px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .espera, .hoja, .mini.cargando, .mini-hero.cargando, .ahora.entrar .hero, .visor.cargando video { animation: none; }
+  .espera, .hoja, .mini.cargando, .pantalla.cargando video { animation: none; }
 }
 
-/* ---------- Celular: mas aire y cada seccion en su propia tarjeta ---------- */
+/* ---------- celular: cada seccion de la lista en su propia tarjeta ---------- */
 @media (max-width: 899px) {
-  main { gap: 22px; }
-  #contenido { gap: 18px; }
-  .hero { gap: 16px; }
-  .botones { margin-top: 16px; }
-  .botones .sec-btn:not(.icono) { flex: 1; }
-  .bloque-qv, .bloque-tv { background: var(--seccion); border-radius: 16px; padding: 2px 16px 4px; gap: 0; }
-  .cab { align-items: center; min-height: 48px; }
-  .cab h2 { font-size: 15px; }
-  .fav { display: flex; align-items: center; }
-  .fav-sel { flex: 1; min-width: 0; min-height: 52px; }
-  .fav.vivo .fav-sel { min-height: 68px; }
-  .ver-fila { width: 44px; height: 44px; margin-right: -10px; display: grid; place-items: center; color: var(--muted); flex: 0 0 auto; }
-  .tv-sel { min-height: 60px; }
-  .log { padding: 0 2px; }
+  .seccion { background: var(--seccion); border-radius: 16px; padding: 2px 6px 6px; }
+  .acciones .btn:not(.icono) { flex: 1; }
+  .con-texto { display: none; }
 }
 
-/* Al final a proposito: tiene que ganarle a las reglas base de arriba. */
-/* ---------- Pantalla ancha: diseno K + escritorio v2 ---------- */
+/* ---------- compu: reproductor a la izquierda, lista a la derecha ---------- */
 @media (min-width: 900px) {
-  body { padding-left: 40px; padding-right: 40px; }
-  main { max-width: 1200px; gap: 36px; }
-  .kbd { display: inline-block; }
+  body { font-size: 15px; }
+  .app { padding: 16px 32px 40px; gap: 22px; }
+  .top { flex-wrap: nowrap; gap: 20px; }
+  .marca { flex: 1 1 0; margin-right: 0; }
+  .buscar { order: 0; flex: 0 1 600px; height: 44px; }
+  .top-der { flex: 1 1 0; justify-content: flex-end; }
   .usar-cel, .btn-atajos { display: inline-flex; }
-  #contenido { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 48px; align-items: start; }
-  .col { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
-  #ahora, .bloque-qv, .otro, .bloque-tv, .log { order: 0; }
-
-  /* Miniatura grande arriba y el nombre y el titulo abajo. */
-  .hero, .hero.sin-mini { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
-  .mini-hero { width: 100%; border-radius: 14px; border: 1px solid #24232e; }
-  .mini-hero .chapa { display: flex; }
-  .chapa.arriba { top: 14px; left: 14px; }
-  .chapa.abajo { bottom: 14px; right: 14px; font-weight: 400; color: #c9c9d1; border-radius: 6px; }
-  .canal, .hero:not(.sin-mini) .canal { font-size: 34px; line-height: 1.1; }
-  .titulo svg { width: 28px; height: 28px; }
-  .donde { font-size: 13px; }
-  .meta { font-size: 14px; }
-  .botones .sec-btn:not(.icono) { padding: 0 20px; }
-  .ver-fila { display: none; }
-
-  .otro input { font-size: 15px; }
-
-  /* Que ver: tarjetas de a 3 con miniatura; los offline, chips al final. */
-  #favs-vivo { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-  #favs-vivo .fav { border-top: 0; }
-  .fav.vivo .fav-sel { display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-height: 0; }
-  .fav.vivo .mini { width: 100%; border-radius: 10px; }
-  .fav.vivo .mini-logo { display: none; }
-  .fav.vivo .n > svg { display: block; }
-  .fav.vivo .n { gap: 8px; font-size: 13px; }
-  .fav.vivo .der { display: none; }
-  .fav.actual .mini { box-shadow: inset 0 0 0 2px var(--vivo); }
-  .mini .num { display: block; position: absolute; top: 7px; left: 7px; z-index: 1; color: var(--ink); background: rgba(12, 12, 14, .8); border: 0; font-size: 10px; font-weight: 700; }
-  .mini .chapa { display: flex; bottom: 7px; right: 7px; font-size: 10px; padding: 1px 7px; border-radius: 5px; }
-  .mini .chapa i { width: 5px; height: 5px; }
-  .mini .chapa.en-tv { color: var(--vivo); }
-  .mini .chapa.quitar { color: var(--vivo); }
-  #favs-off { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
-  #favs-off:empty { display: none; }
-  .offline-titulo { display: block; font-size: 12px; color: var(--muted); margin-right: 4px; }
-  #favs-off .fav { border-top: 0; }
-  #favs-off .fav-sel { display: inline-flex; align-items: center; height: 34px; min-height: 0; padding: 0 12px; border-radius: 17px; border: 1px solid #24242a; gap: 8px; }
-  #favs-off .n { gap: 8px; font-size: 13px; }
-  #favs-off .der { display: none; }
-  #favs-off .fav-sel.quitando { border-color: var(--vivo); color: var(--vivo); }
-  .arrastrar { font-size: 12px; color: var(--tenue); margin: 4px 0 0; }
+  .kbd { display: inline-block; }
+  .contenido { grid-template-columns: minmax(0, 1fr) 380px; gap: 32px; align-items: start; }
+  /* Que el reproductor y su informacion entren sin bajar en la pantalla. */
+  .pantalla { border-radius: 14px; max-height: calc(100vh - 290px); }
+  .info-nombre h1 { font-size: 26px; }
+  .mini { width: 136px; }
 }
-/* En la compu todo un poco mas grande: a distancia de escritorio, los tamanos
-   pensados para el celular se veian chicos. zoom escala todo por igual. */
-@media (min-width: 900px) { body { zoom: 1.15; } }
-@media (min-width: 1500px) { body { zoom: 1.3; } }
-/* Hover en las tarjetas: titulo completo y botones. Solo con mouse. */
+@media (min-width: 1500px) {
+  .contenido { grid-template-columns: minmax(0, 1fr) 440px; }
+  .mini { width: 152px; }
+}
+/* Con mouse, las acciones de cada fila aparecen al pasar por encima. */
 @media (min-width: 900px) and (hover: hover) {
-  .fav.vivo { cursor: grab; }
-  .fav-acc {
-    position: absolute; top: 0; left: 0; right: 0; aspect-ratio: 16 / 9; z-index: 2; border-radius: 10px;
-    background: rgba(12, 12, 14, .7); padding: 8px; flex-direction: column; justify-content: space-between;
-    box-shadow: inset 0 0 0 2px var(--ink);
-  }
-  .fav.vivo:hover .fav-acc, .fav.vivo:focus-within .fav-acc { display: flex; }
-  .fav.vivo:hover .mini .chapa, .fav.vivo:hover .mini .num { visibility: hidden; }
-  .fav-acc .tit-completo { font-size: 11px; line-height: 1.3; color: #e4e4e8; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-  .fav-acc .btns { display: flex; gap: 6px; }
-  .fav-acc .poner { min-width: 0; height: 28px; padding: 0 10px; border-radius: 7px; background: var(--ink); color: var(--bg); font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .fav-acc .estrella { width: 28px; height: 28px; flex: 0 0 auto; border-radius: 7px; border: 1px solid #44444c; color: #fbbf24; font-size: 13px; }
-  .fav-acc .ver { display: grid; place-items: center; color: var(--ink); }
+  .fila:hover { background: #141418; }
+  .fila.sel, .fila.sel:hover { background: #1a1a20; }
+  .fila-acc { opacity: 0; transition: opacity .12s; }
+  .fila:hover .fila-acc, .fila:focus-within .fila-acc, .editando .fila-acc { opacity: 1; }
+  #favs-vivo .fila, #favs-off .fila { cursor: grab; }
 }
 </style>
 </head>
 <body>
-<main id="app">
-  <div class="top">
+<div class="app" id="app">
+  <header class="top">
     <span class="marca">stream2tv</span>
-    <span class="top-der">
-      <button class="btn-atajos" type="button" id="btn-atajos" aria-haspopup="dialog"><kbd>?</kbd>Atajos</button>
-      <button class="usar-cel" type="button" id="btn-celular" aria-expanded="false" aria-controls="cuadro-qr">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg>Usar en el celular
+    <form class="buscar" id="form">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+      <input type="text" id="canal" placeholder="Pegá un link o escribí un canal" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" aria-label="Link o canal">
+      <button class="ir" type="submit" id="btn-ir" aria-label="Ver" hidden>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
       </button>
-      <span class="con off" id="con"><i></i><span id="con-texto">Conectando…</span></span>
+      <kbd class="kbd" aria-hidden="true">/</kbd>
+      <button class="plat" type="button" id="btn-plat" aria-haspopup="listbox" aria-expanded="false" aria-controls="menu-plat"><span id="logo-form"></span>▾</button>
+      <div class="cuadro menu-plat" id="menu-plat" role="listbox" aria-label="Plataforma" hidden></div>
+    </form>
+    <span class="top-der">
+      <button class="btn-top btn-tv" type="button" id="btn-tv" aria-haspopup="dialog" aria-expanded="false" aria-controls="cuadro-tv">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"></path><path d="M2 12a9 9 0 0 1 8 8"></path><path d="M2 16a5 5 0 0 1 4 4"></path><path d="M2 20h.01"></path></svg>
+        <span id="tv-nombre">TV</span><i aria-hidden="true"></i>
+      </button>
+      <button class="btn-top usar-cel" type="button" id="btn-celular" aria-expanded="false" aria-controls="cuadro-qr">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg>Celular
+      </button>
+      <button class="btn-top btn-atajos" type="button" id="btn-atajos" aria-haspopup="dialog" aria-label="Atajos de teclado">?</button>
+      <span class="con off" id="con"><i></i><span class="con-texto" id="con-texto">Conectando…</span></span>
     </span>
-    <div class="cuadro-qr" id="cuadro-qr" role="dialog" aria-label="Usar en el celular" hidden>
+    <div class="cuadro cuadro-tv" id="cuadro-tv" role="dialog" aria-label="Enviar a la TV" hidden>
+      <div class="cab"><h2>Enviar a <kbd class="kbd" aria-hidden="true">T</kbd></h2><button class="accion" type="button" data-accion="buscar" id="btn-buscar">Buscar TVs</button></div>
+      <div id="tvs"></div>
+    </div>
+    <div class="cuadro cuadro-qr" id="cuadro-qr" role="dialog" aria-label="Usar en el celular" hidden>
       <strong>Usar en el celular</strong>
       <img id="img-qr" alt="Código QR para abrir el panel en el celular" width="168" height="168">
       <p>Escanealo con la cámara. Se hace una sola vez por celular.</p>
       <small id="url-panel"></small>
     </div>
-  </div>
+  </header>
 
   <div id="especial"><p class="cargando-txt">Conectando con la laptop…</p></div>
 
-  <div id="contenido" hidden>
-    <!-- En pantalla ancha son dos columnas; en el celular las columnas no
-         cuentan (display: contents) y "order" deja cada bloque en su lugar:
-         lo que se ve, Que ver, Otro canal (pegado a la lista), TV, Actividad. -->
-    <div class="col col-izq">
-      <section class="visor" id="visor" aria-label="Viendo aquí" hidden>
+  <main class="contenido" id="contenido" hidden>
+    <section class="escenario" aria-label="Reproductor">
+      <div class="pantalla" id="pantalla">
         <video id="video" controls playsinline></video>
-        <div class="visor-pie"><span class="visor-canal" id="visor-canal"></span><button class="texto-btn" type="button" data-accion="cerrar-visor">Cerrar</button></div>
-      </section>
-      <section id="ahora" class="ahora"></section>
-      <form class="otro" id="form">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="color: var(--muted)"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
-        <input type="text" id="canal" placeholder="Otro canal o link" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" aria-label="Otro canal o link">
-        <button class="ir" type="submit" id="btn-ir" aria-label="Reproducir" hidden>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
-        </button>
-        <kbd class="kbd" aria-hidden="true">/</kbd>
-        <button class="plat" type="button" id="btn-plat" aria-haspopup="listbox" aria-expanded="false" aria-controls="menu-plat"><span id="logo-form"></span>▾</button>
-        <div class="menu-plat" id="menu-plat" role="listbox" aria-label="Plataforma" hidden></div>
-      </form>
-      <section class="bloque bloque-tv">
-        <div class="cab"><h2>TV <kbd class="kbd" aria-hidden="true">T</kbd></h2><button class="accion" type="button" data-accion="buscar" id="btn-buscar">Buscar</button></div>
-        <div id="tvs"></div>
-      </section>
-    </div>
-    <div class="col col-der">
-      <section class="bloque bloque-qv">
-        <div class="cab"><h2>Qué ver <span class="cuantos" id="cuantos"></span></h2><button class="accion" type="button" data-accion="editar" id="btn-editar">Editar</button></div>
+        <div class="portada" id="portada"></div>
+      </div>
+      <div class="info" id="info"></div>
+      <div class="franja" id="franja" hidden></div>
+    </section>
+    <aside class="lista" id="lista" aria-label="Streams">
+      <section class="seccion">
+        <div class="cab"><h2>Favoritos <span class="cuantos" id="cuantos"></span></h2><button class="accion" type="button" data-accion="editar" id="btn-editar">Editar</button></div>
         <div id="favs-vivo"></div>
         <div id="favs-off"></div>
-        <p class="arrastrar kbd" id="ayuda-arrastrar" hidden>Arrastrá una tarjeta para cambiar el orden.</p>
+        <p class="vacio-lista" id="sin-favs" hidden>Guardá con ☆ los streams que más ves y aparecen acá, con quién está en vivo.</p>
+        <p class="arrastrar kbd" id="ayuda-arrastrar" hidden>Arrastrá para cambiar el orden.</p>
+      </section>
+      <section class="seccion" id="bloque-agregados" hidden>
+        <div class="cab"><h2>Agregados</h2></div>
+        <div id="agregados"></div>
       </section>
       <details class="log"><summary>Actividad</summary><div class="log-lineas" id="log-lineas"></div></details>
-    </div>
-  </div>
-</main>
+    </aside>
+  </main>
+</div>
 <div class="aviso" id="aviso" role="status" hidden><span id="aviso-texto"></span><button type="button" id="aviso-accion" hidden></button></div>
 
 <div class="velo" id="velo" hidden></div>
@@ -419,11 +398,12 @@ details.log[open] summary::after { content: " ▴"; }
 <div class="dialogo" id="atajos" role="dialog" aria-modal="true" aria-labelledby="atajos-titulo" hidden>
   <div class="dialogo-cab"><h2 id="atajos-titulo">Atajos de teclado</h2><button class="texto-btn" type="button" data-cerrar>Cerrar</button></div>
   <dl class="lista-atajos">
-    <dt><kbd>/</kbd></dt><dd>Escribir otro canal</dd>
-    <dt><kbd>1 – 9</kbd></dt><dd>Poner el canal en vivo de esa posición</dd>
-    <dt><kbd>S</kbd></dt><dd>Detener</dd>
+    <dt><kbd>/</kbd></dt><dd>Pegar un link o escribir un canal</dd>
+    <dt><kbd>Ctrl+V</kbd></dt><dd>Ver aquí un link copiado de Twitch, Kick o YouTube</dd>
+    <dt><kbd>1 – 9</kbd></dt><dd>Ver aquí el favorito en vivo de esa posición</dd>
+    <dt><kbd>E</kbd></dt><dd>Enviar a la TV lo que está en el reproductor</dd>
+    <dt><kbd>S</kbd></dt><dd>Detener la TV</dd>
     <dt><kbd>T</kbd></dt><dd>Cambiar a la otra TV</dd>
-    <dt><kbd>Ctrl+V</kbd></dt><dd>Poner un link copiado de Twitch, Kick o YouTube</dd>
     <dt><kbd>?</kbd></dt><dd>Mostrar esta ayuda</dd>
   </dl>
 </div>
@@ -444,8 +424,9 @@ details.log[open] summary::after { content: " ▴"; }
   var editando = false;
   var arrastrando = false;
   var hojaUdn = null;      // TV que se esta renombrando en la hoja
-  var platForm = null;     // plataforma elegida para "Otro canal"
-  var canalMostrado = null;
+  var platForm = null;     // plataforma elegida para escribir un canal suelto
+  var sel = null;          // stream del reproductor: {canal, plataforma}
+  var viendo = false;      // el <video> esta cargando o reproduciendo `sel`
   var escritorio = window.matchMedia("(min-width: 900px)");
 
   // Logos chicos de cada plataforma.
@@ -454,13 +435,15 @@ details.log[open] summary::after { content: " ▴"; }
     twitch: '<path fill="#9146FF" d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"></path>',
     youtube: '<rect x="1" y="4.5" width="22" height="15" rx="4.5" fill="#FF0033"></rect><path d="M10 8.8v6.4l5.6-3.2z" fill="#fff"></path>'
   };
-  function iconoVer(tam) {
-    return '<svg width="' + tam + '" height="' + tam + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg>';
-  }
   function logo(plat, tam) {
     if (!LOGOS[plat]) return "";
     return '<svg width="' + tam + '" height="' + tam + '" viewBox="0 0 24 24" role="img" aria-label="' + NOMBRE[plat] + '">' + LOGOS[plat] + '</svg>';
   }
+  // Pantalla con ondas: "enviar a la TV".
+  function iconoTV(tam) {
+    return '<svg width="' + tam + '" height="' + tam + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"></path><path d="M2 12a9 9 0 0 1 8 8"></path><path d="M2 16a5 5 0 0 1 4 4"></path><path d="M2 20h.01"></path></svg>';
+  }
+  var PLAY = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"></path></svg>';
 
   function esc(t) {
     return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
@@ -469,7 +452,7 @@ details.log[open] summary::after { content: " ▴"; }
   }
   function $(id) { return document.getElementById(id); }
 
-  // ---------- avisos (con accion opcional, ej. "Deshacer") ----------
+  // ---------- avisos (con accion opcional, ej. "Elegir TV") ----------
   var avisoTimer = null;
   var avisoFn = null;
   function avisar(texto, accion, fn) {
@@ -482,7 +465,8 @@ details.log[open] summary::after { content: " ▴"; }
     clearTimeout(avisoTimer);
     avisoTimer = setTimeout(function () { $("aviso").hidden = true; }, accion ? 6000 : 3500);
   }
-  $("aviso-accion").addEventListener("click", function () {
+  $("aviso-accion").addEventListener("click", function (e) {
+    e.stopPropagation();
     $("aviso").hidden = true;
     if (avisoFn) avisoFn();
   });
@@ -509,13 +493,27 @@ details.log[open] summary::after { content: " ▴"; }
     return tv ? tv.nombre : "";
   }
   function mismoCanal(a, b) { return String(a).toLowerCase() === String(b).toLowerCase(); }
-  // Un favorito guardado como link se muestra con el nombre del canal.
+  function mismo(a, b) { return !!(a && b) && a.plataforma === b.plataforma && mismoCanal(a.canal, b.canal); }
+  // El nombre del canal si es el link de un canal (twitch.tv/x, kick.com/x, youtube.com/@x).
+  function canalDeLink(texto) {
+    var m = /^https?:\/\/(?:www\.|m\.)?(?:twitch\.tv|kick\.com)\/([^\/?#]+)\/?$/i.exec(texto) ||
+      /^https?:\/\/(?:www\.|m\.)?youtube\.com\/@([^\/?#]+)(?:\/live)?\/?$/i.exec(texto);
+    return m ? m[1] : null;
+  }
+  // Un canal guardado como link se muestra con el nombre del canal.
   function nombreVisible(canal) {
-    var m = /^https?:\/\/(?:www\.|m\.)?(?:twitch\.tv|kick\.com)\/([^\/?#]+)\/?$/i.exec(canal) ||
-      /^https?:\/\/(?:www\.|m\.)?youtube\.com\/@([^\/?#]+)(?:\/live)?\/?$/i.exec(canal);
-    return m ? m[1] : canal;
+    return canalDeLink(canal) || String(canal).replace(/^https?:\/\/(?:www\.)?/i, "");
+  }
+  // Un link dice de que plataforma es; un nombre suelto usa la del menu.
+  function plataformaDe(texto) {
+    if (/^https?:\/\/(?:[\w-]+\.)*twitch\.tv\//i.test(texto)) return "twitch";
+    if (/^https?:\/\/(?:[\w-]+\.)*kick\.com\//i.test(texto)) return "kick";
+    if (/^https?:\/\/(?:[\w-]+\.)*(?:youtube\.com|youtu\.be)\//i.test(texto)) return "youtube";
+    return platForm;
   }
   function claveVivo(f) { return f.plataforma + ":" + String(f.canal).trim().toLowerCase(); }
+  function infoVivo(f) { return (s.en_vivo || {})[claveVivo(f)] || null; }
+  function enTV(f) { return !!(EN_TV[s.fase] && s.canal) && mismo(f, { canal: s.canal, plataforma: s.plataforma }); }
   // 235411 -> "235 mil", 11437 -> "11,4 mil".
   function espectadores(n) {
     if (n == null) return "";
@@ -534,19 +532,11 @@ details.log[open] summary::after { content: " ▴"; }
     // Si no carga (sin internet, canal recien cortado), queda el hueco oscuro.
     return '<img src="' + esc(miniatura(url)) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">';
   }
-  function vivos() {
-    var vivo = s.en_vivo || {};
-    return s.favoritos.map(function (f, i) { return { f: f, i: i, e: vivo[claveVivo(f)] || null }; })
-      .filter(function (p) { return p.e && p.e.vivo; });
+  function conVivo(lista) {
+    return lista.map(function (f, i) { var e = infoVivo(f); return { f: f, i: i, e: e, vivo: !!(e && e.vivo) }; });
   }
-  function noVivos() {
-    var vivo = s.en_vivo || {};
-    return s.favoritos.map(function (f, i) { return { f: f, i: i, e: vivo[claveVivo(f)] || null }; })
-      .filter(function (p) { return !(p.e && p.e.vivo); });
-  }
-  function esFavorito(canal, plat) {
-    return s.favoritos.some(function (f) { return mismoCanal(f.canal, canal) && f.plataforma === plat; });
-  }
+  function vivos() { return conVivo(s.favoritos).filter(function (p) { return p.vivo; }); }
+  function esFavorito(f) { return s.favoritos.some(function (g) { return mismo(f, g); }); }
   function minutos() {
     if (!s.desde) return null;
     return Math.max(0, Math.floor((Date.now() - new Date(s.desde).getTime()) / 60000));
@@ -562,100 +552,149 @@ details.log[open] summary::after { content: " ▴"; }
     $(id).innerHTML = html;
   }
 
+  // ---------- el reproductor ----------
+  // Sin eleccion, arranca con lo que esta en la TV o el primer favorito en
+  // vivo, pero sin reproducir: cada "Ver aqui" es una descarga en la laptop.
+  function eleccionInicial() {
+    if (EN_TV[s.fase] && s.canal) return { canal: s.canal, plataforma: s.plataforma };
+    var v = vivos()[0];
+    return v ? v.f : (s.favoritos[0] || s.agregados[0] || null);
+  }
+
+  function renderPantalla() {
+    $("pantalla").classList.toggle("viendo", viendo);
+    if (viendo) return;
+    if (!sel) {
+      poner("portada", '<div class="portada-vacia"><b>Elegí un stream</b>De la lista, o pegá un link arriba.</div>');
+      return;
+    }
+    var e = infoVivo(sel);
+    poner("portada", (e && e.vivo ? img(e.miniatura) : "") +
+      '<button class="play" type="button" data-hacer="ver-sel">' + PLAY + 'Ver aquí</button>' +
+      (e && !e.vivo ? '<span class="nota-portada">' + esc(nombreVisible(sel.canal)) + ' está offline ahora</span>' : ""));
+  }
+
+  function renderInfo() {
+    if (!sel) { poner("info", ""); return; }
+    var e = infoVivo(sel);
+    var estado = e && e.vivo
+      ? '<span class="chapa-vivo">EN VIVO</span>' + (e.espectadores ? '<span class="cifra">' + espectadores(e.espectadores) + ' viendo</span>' : "")
+      : e ? '<span class="cifra">Offline</span>' : "";
+    var deQue = e && e.vivo ? [e.categoria, e.titulo].filter(Boolean).join(" · ") : "";
+    var tv = tvNombre();
+    var verBtn = viendo ? '<button class="btn" type="button" data-hacer="cerrar">Dejar de ver</button>' : "";
+    var enviar = enTV(sel)
+      ? '<button class="btn" type="button" disabled>' + iconoTV(16) + '<span>' + (escritorio.matches ? "En " + esc(tv) : "En la TV") + '</span></button>'
+      : '<button class="btn" type="button" data-hacer="tv-sel"' + (ocupado() ? " disabled" : "") + '>' + iconoTV(16) +
+        '<span>' + (tv && escritorio.matches ? "Enviar a " + esc(tv) : "Enviar a la TV") + '</span><kbd class="kbd" aria-hidden="true">E</kbd></button>';
+    var fav = esFavorito(sel)
+      ? '<button class="btn icono estrella" type="button" data-hacer="fav-sel" aria-label="Quitar de favoritos" title="Quitar de favoritos">★</button>'
+      : '<button class="btn icono" type="button" data-hacer="fav-sel" aria-label="Guardar en favoritos" title="Guardar en favoritos">☆</button>';
+    poner("info",
+      '<div class="info-cab"><div class="info-nombre">' + logo(sel.plataforma, 26) + '<h1>' + esc(nombreVisible(sel.canal)) + '</h1></div>' + estado + '</div>' +
+      (deQue ? '<div class="de-que">' + esc(deQue) + '</div>' : "") +
+      '<div class="acciones">' + verBtn + enviar + fav + '</div>');
+  }
+
   // ---------- lo que esta en la TV ----------
-  function tarjetaAhora() {
-    var donde = '<div class="donde">Ahora en ' + esc(tvNombre() || "ninguna TV") + '</div>';
-    if (s.fase === "libre" || s.fase === "buscando" || !s.canal) {
-      return '<div class="hero sin-mini"><div class="hero-info">' + donde +
-        '<div class="vacio">' + (s.fase === "buscando" ? "Buscando TVs…" : "Nada en la TV") + '</div>' +
-        '<div class="sub">Elegí un canal de la lista o escribí otro.</div></div></div>';
-    }
-    var info = (s.en_vivo || {})[claveVivo({ plataforma: s.plataforma, canal: s.canal })];
-    var vivoInfo = info && info.vivo ? info : null;
-    var m = minutos();
-
-    var mini = "";
-    if (ARRANCANDO[s.fase]) {
-      mini = '<div class="mini-hero cargando" aria-hidden="true"></div>';
-    } else if (vivoInfo && vivoInfo.miniatura && (s.fase === "reproduciendo" || s.fase === "reconectando")) {
-      var arriba = "EN VIVO" + (vivoInfo.espectadores ? " · " + espectadores(vivoInfo.espectadores) : "");
-      var abajo = "en " + tvNombre() + (m !== null ? " · " + (m === 0 ? "recién empezó" : m + " min") : "");
-      mini = '<div class="mini-hero">' + img(vivoInfo.miniatura) +
-        '<span class="chapa arriba"><i></i>' + esc(arriba) + '</span><span class="chapa abajo">' + esc(abajo) + '</span></div>';
-    }
-
-    var titulo = '<div class="titulo">' + logo(s.plataforma, 24) + '<span class="canal">' + esc(nombreVisible(s.canal)) + '</span></div>';
-    if (vivoInfo) {
-      var deQue = [vivoInfo.categoria, vivoInfo.titulo].filter(Boolean).join(" · ");
-      if (deQue) titulo += '<div class="de-que">' + esc(deQue) + '</div>';
-    }
-    var meta, sub = "", botones = "";
-    var detener = '<button class="sec-btn" type="button" data-accion="detener">Detener <kbd class="kbd" aria-hidden="true">S</kbd></button>';
-    var verAqui = '<button class="sec-btn ver-aqui" type="button" data-accion="ver">Ver aquí</button>';
+  function franjaTV() {
+    if (!s.canal || s.fase === "libre" || s.fase === "buscando") return "";
+    var f = { canal: s.canal, plataforma: s.plataforma };
+    var e = infoVivo(f), vivoInfo = e && e.vivo ? e : null, m = minutos();
+    var mini = ARRANCANDO[s.fase] ? '<span class="mini cargando" aria-hidden="true"></span>'
+      : vivoInfo && vivoInfo.miniatura ? '<span class="mini">' + img(vivoInfo.miniatura) + '</span>' : "";
+    var detener = '<button class="btn chico" type="button" data-accion="detener">Detener <kbd class="kbd" aria-hidden="true">S</kbd></button>';
+    var verla = viendo && mismo(f, sel) ? "" : '<button class="btn chico" type="button" data-hacer="ver-tv">Ver aquí</button>';
+    var meta, botones = "";
     if (s.fase === "reproduciendo") {
       var partes = ["En vivo"];
       if (m !== null) partes.push(m === 0 ? "recién empezó" : m + " min");
-      if (vivoInfo && vivoInfo.espectadores) partes.push(espectadores(vivoInfo.espectadores) + " viendo");
       if (s.anuncios) partes.push(s.anuncios === 1 ? "1 anuncio filtrado" : s.anuncios + " anuncios filtrados");
       meta = '<div class="meta"><i class="punto"></i><span>' + partes.join(" · ") + '</span></div>';
-      var guardar = !esFavorito(s.canal, s.plataforma);
-      botones = '<div class="botones">' + detener + verAqui +
-        (guardar ? '<button class="sec-btn icono" type="button" data-accion="guardar" aria-label="Guardar en Qué ver">☆</button>' : "") + '</div>';
+      botones = verla + detener;
     } else if (s.fase === "reconectando") {
       // El mensaje viene como "Reconectando... intento 2 de 5".
       var intento = /intento (\d+ de \d+)/.exec(s.mensaje || "");
-      meta = '<div class="meta reconectando"><i class="espera"></i><span>Reconectando…' + (intento ? " intento " + intento[1] : "") + '</span></div>';
-      sub = '<div class="sub tenue">' + esc(NOMBRE[s.plataforma] || "El sitio") + ' dejó de responder. La TV sigue conectada y vuelve sola.</div>';
-      botones = '<div class="botones">' + detener + verAqui + '</div>';
+      meta = '<div class="meta reconectando" title="' + esc(NOMBRE[s.plataforma] || "El sitio") + ' dejó de responder. La TV sigue conectada y vuelve sola.">' +
+        '<i class="espera"></i><span>Reconectando…' + (intento ? " intento " + intento[1] : "") + '</span></div>';
+      botones = verla + detener;
     } else if (s.fase === "error") {
-      meta = '<div class="meta error">' + esc(s.mensaje) + '</div>';
-      sub = '<div class="sub">Probá con otro canal o volvé más tarde.</div>';
+      meta = '<div class="meta error"><span>' + esc(s.mensaje) + '</span></div>';
     } else {
       var texto = s.fase === "verificando" ? "Verificando en " + (NOMBRE[s.plataforma] || "el sitio") + "…"
         : s.fase === "enviando" ? "Abriendo en la TV…" : "Deteniendo…";
       meta = '<div class="meta"><i class="espera"></i><span>' + texto + '</span></div>';
-      if (s.fase !== "deteniendo") botones = '<div class="botones"><button class="sec-btn" type="button" data-accion="detener">Cancelar</button></div>';
+      if (s.fase !== "deteniendo") botones = '<button class="btn chico" type="button" data-accion="detener">Cancelar</button>';
     }
-    return '<div class="hero' + (mini ? "" : " sin-mini") + '">' + mini +
-      '<div class="hero-info">' + donde + titulo + meta + sub + '</div></div>' + botones;
+    return mini + '<div class="franja-txt"><div class="franja-donde">En ' + esc(tvNombre() || "la TV") + '</div>' +
+      '<div class="franja-canal">' + logo(s.plataforma, 16) + '<span>' + esc(nombreVisible(s.canal)) + '</span></div>' + meta + '</div>' +
+      (botones ? '<div class="franja-btns">' + botones + '</div>' : "");
   }
 
-  // ---------- Que ver ----------
-  function favVivo(p, n) {
+  // ---------- la lista de streams ----------
+  function fila(p, lista, n) {
     var f = p.f, e = p.e;
-    var actual = EN_TV[s.fase] && s.canal && mismoCanal(f.canal, s.canal) && f.plataforma === s.plataforma;
     var nombre = esc(nombreVisible(f.canal));
-    var tit = [e.categoria, e.titulo].filter(Boolean).join(" · ");
-    var cifra = espectadores(e.espectadores) || "En vivo";
-    var chapa = editando ? '<span class="chapa quitar">Quitar</span>'
-      : actual ? '<span class="chapa en-tv"><i></i>En la TV</span>'
-      : '<span class="chapa"><i></i>' + esc(cifra) + '</span>';
-    var der = editando ? '<span class="der quitar">Quitar</span>'
-      : actual ? '<span class="der en-tv"><i></i>En la TV</span>'
-      : '<span class="der"><i></i>' + esc(cifra) + '</span>';
-    return '<div class="fav vivo' + (actual ? " actual" : "") + '" data-i="' + p.i + '">' +
-      '<button class="fav-sel" type="button" data-fav="' + p.i + '" aria-label="' + (editando ? "Quitar " : "Poner ") + nombre + '">' +
-        '<span class="mini">' + img(e.miniatura) + '<span class="mini-logo">' + logo(f.plataforma, 14) + '</span>' +
-          (n <= 9 ? '<kbd class="num" aria-hidden="true">' + n + '</kbd>' : "") + chapa + '</span>' +
-        '<span class="n">' + logo(f.plataforma, 16) + '<span>' + nombre + (tit ? '<small class="tit">' + esc(tit) + '</small>' : "") + '</span></span>' +
-        der +
-      '</button>' +
-      // En el celular no hay hover: "Ver aqui" va al lado de la fila.
-      (editando ? "" : '<button class="ver-fila" type="button" data-ver="' + p.i + '" aria-label="Ver ' + nombre + ' aquí">' + iconoVer(18) + '</button>') +
-      '<div class="fav-acc"><span class="tit-completo">' + esc(e.titulo || e.categoria || "") + '</span>' +
-        '<span class="btns"><button class="poner" type="button" data-fav="' + p.i + '">▶ Poner en ' + esc(tvNombre() || "la TV") + '</button>' +
-        '<button class="estrella ver" type="button" data-ver="' + p.i + '" aria-label="Ver ' + nombre + ' aquí" title="Ver aquí">' + iconoVer(14) + '</button>' +
-        '<button class="estrella" type="button" data-quitar="' + p.i + '" aria-label="Quitar ' + nombre + ' de Qué ver">★</button></span></div>' +
-    '</div>';
+    var tv = enTV(f);
+    var datos = ' data-lista="' + lista + '" data-i="' + p.i + '"';
+    var mini = p.vivo
+      ? '<span class="mini">' + img(e.miniatura) + (n && n <= 9 ? '<kbd class="num kbd" aria-hidden="true">' + n + '</kbd>' : "") +
+        '<span class="chapa"><i></i>' + esc(espectadores(e.espectadores) || "En vivo") + '</span></span>'
+      : '<span class="logo-caja">' + logo(f.plataforma, 18) + '</span>';
+    var sub = p.vivo ? [e.categoria, e.titulo].filter(Boolean).join(" · ") : e ? "Offline" : "";
+    var acc;
+    if (lista === "fav" && editando) {
+      acc = '<button class="mini-btn quitar" type="button" data-hacer="fav"' + datos + ' aria-label="Quitar ' + nombre + ' de favoritos" title="Quitar">✕</button>';
+    } else {
+      acc = tv ? "" : '<button class="mini-btn" type="button" data-hacer="tv"' + datos + ' aria-label="Enviar ' + nombre + ' a la TV" title="Enviar a la TV">' + iconoTV(17) + '</button>';
+      if (lista === "agr") {
+        acc += '<button class="mini-btn" type="button" data-hacer="fav"' + datos + ' aria-label="Guardar ' + nombre + ' en favoritos" title="Guardar en favoritos">☆</button>' +
+          '<button class="mini-btn quitar" type="button" data-hacer="quitar"' + datos + ' aria-label="Quitar ' + nombre + ' de la lista" title="Quitar">✕</button>';
+      }
+    }
+    return '<div class="fila ' + (p.vivo ? "vivo" : "off") + (mismo(f, sel) ? " sel" : "") + '"' + datos + '>' +
+      '<button class="fila-sel" type="button" data-hacer="ver"' + datos + ' aria-label="Ver ' + nombre + ' aquí">' + mini +
+        '<span class="fila-txt"><span class="fila-nombre">' + (p.vivo ? logo(f.plataforma, 14) : "") + '<span>' + nombre + '</span>' +
+          (tv ? '<em class="chip-tv">En la TV</em>' : "") + '</span>' + (sub ? '<small>' + esc(sub) + '</small>' : "") + '</span>' +
+      '</button><span class="fila-acc">' + acc + '</span></div>';
   }
-  function favOff(p) {
-    var f = p.f, e = p.e;
-    var nombre = esc(nombreVisible(f.canal));
-    var der = editando ? '<span class="der quitar">Quitar</span>' : e ? '<span class="der">Offline</span>' : "<span></span>";
-    return '<div class="fav' + (e ? " off" : "") + '" data-i="' + p.i + '">' +
-      '<button class="fav-sel' + (editando ? " quitando" : "") + '" type="button" data-fav="' + p.i + '">' +
-        '<span class="n">' + logo(f.plataforma, 16) + '<span>' + nombre + '</span></span>' + der +
-      '</button></div>';
+
+  function renderLista() {
+    var favs = conVivo(s.favoritos);
+    var lv = favs.filter(function (p) { return p.vivo; });
+    var lo = favs.filter(function (p) { return !p.vivo; });
+    $("cuantos").textContent = lv.length ? "· " + lv.length + " en vivo" : "";
+    $("lista").classList.toggle("editando", editando);
+    // Mientras se arrastra no se redibuja: se perderia la fila en la mano.
+    if (!arrastrando) {
+      poner("favs-vivo", lv.map(function (p, k) { return fila(p, "fav", k + 1); }).join(""));
+      poner("favs-off", lo.map(function (p) { return fila(p, "fav"); }).join(""));
+    }
+    $("sin-favs").hidden = s.favoritos.length > 0;
+    $("ayuda-arrastrar").hidden = s.favoritos.length < 2;
+    var editar = $("btn-editar");
+    editar.hidden = !s.favoritos.length;
+    editar.textContent = editando ? "Listo" : "Editar";
+    // Agregados: los en vivo primero, como en favoritos.
+    var agr = conVivo(s.agregados);
+    $("bloque-agregados").hidden = !agr.length;
+    poner("agregados", agr.filter(function (p) { return p.vivo; }).concat(agr.filter(function (p) { return !p.vivo; }))
+      .map(function (p) { return fila(p, "agr"); }).join(""));
+  }
+
+  function renderTVs() {
+    $("tv-nombre").textContent = tvNombre() || "Sin TV";
+    $("btn-tv").classList.toggle("en-uso", !!(EN_TV[s.fase] && s.canal));
+    $("btn-buscar").textContent = s.fase === "buscando" ? "Buscando…" : "Buscar TVs";
+    poner("tvs", s.tvs.map(function (t) {
+      var detalle = t.alias ? esc(t.original) + " · " + esc(t.ip) : esc(t.ip);
+      return '<div class="fila-tv"><button class="tv-sel" type="button" data-tv="' + esc(t.udn) + '" aria-pressed="' + (t.udn === s.tv) + '">' +
+        '<span><b>' + esc(t.nombre) + '</b><small>' + detalle + '</small></span>' +
+        '<span class="check" aria-hidden="true">' + (t.udn === s.tv ? "✓" : "") + '</span></button>' +
+        '<button class="lapiz" type="button" data-renombrar="' + esc(t.udn) + '" aria-label="Cambiar el nombre de ' + esc(t.nombre) + '">' +
+        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></button></div>';
+    }).join("") || (s.fase === "buscando" ? '<p class="sin-tvs">Buscando TVs…</p>'
+      : '<p class="sin-tvs">No encontré ninguna TV. Revisá que esté prendida y en el mismo wifi; si usás Kodi, abrilo antes de buscar.</p>'));
   }
 
   function renderConexion() {
@@ -672,10 +711,9 @@ details.log[open] summary::after { content: " ▴"; }
   function vistaEspecial() {
     if (sinAcceso) {
       return '<div class="centro"><h2>Este celular no tiene acceso</h2>' +
-        '<p>Escaneá con la cámara el código que muestra la terminal al abrir stream2tv, o el del botón "Usar en el celular" del panel en la compu. Se hace una sola vez.</p></div>';
+        '<p>Escaneá con la cámara el código que muestra la terminal al abrir stream2tv, o el del botón "Celular" del panel en la compu. Se hace una sola vez.</p></div>';
     }
     if (!s) return '<p class="cargando-txt">Conectando con la laptop…</p>';
-    // Sin TV el panel sigue: se puede ver aqui. La lista de TVs dice que no hay.
     return null;
   }
 
@@ -697,119 +735,103 @@ details.log[open] summary::after { content: " ▴"; }
 
     if (!platForm) platForm = s.plataforma || s.plataforma_inicial || "kick";
     if (!s.favoritos.length) editando = false;
+    if (!sel) sel = eleccionInicial();
 
-    // Fundido suave cuando cambia lo que se esta viendo.
-    var clave = s.canal ? s.plataforma + ":" + s.canal : "";
-    if (clave !== canalMostrado) {
-      if (canalMostrado !== null) {
-        var ahora = $("ahora");
-        ahora.classList.remove("entrar");
-        void ahora.offsetWidth;
-        ahora.classList.add("entrar");
-      }
-      canalMostrado = clave;
-    }
-    poner("ahora", tarjetaAhora());
-
-    var lv = vivos(), lo = noVivos();
-    $("cuantos").textContent = lv.length ? "· " + lv.length + " en vivo" : "";
-    // Mientras se arrastra no se redibuja: se perderia la tarjeta en la mano.
-    if (!arrastrando) {
-      poner("favs-vivo", lv.map(function (p, k) { return favVivo(p, k + 1); }).join(""));
-      poner("favs-off", lo.length ? (lv.length ? '<span class="offline-titulo">Offline</span>' : "") + lo.map(favOff).join("") : "");
-    }
-    $("ayuda-arrastrar").hidden = s.favoritos.length < 2;
-    var editar = $("btn-editar");
-    editar.hidden = !s.favoritos.length;
-    editar.textContent = editando ? "Listo" : "Editar";
-
+    renderPantalla();
+    renderInfo();
+    var franja = franjaTV();
+    poner("franja", franja);
+    $("franja").hidden = !franja;
+    renderLista();
+    renderTVs();
     renderMenuPlat();
-    $("btn-ir").disabled = ocupado();
-    $("btn-buscar").textContent = s.fase === "buscando" ? "Buscando…" : "Buscar";
-
-    poner("tvs", s.tvs.map(function (t) {
-      var detalle = t.alias ? esc(t.original) + " · " + esc(t.ip) : esc(t.ip);
-      return '<div class="fila-tv"><button class="tv-sel" type="button" data-tv="' + esc(t.udn) + '" aria-pressed="' + (t.udn === s.tv) + '">' +
-        '<span class="n"><span>' + esc(t.nombre) + '<small>' + detalle + '</small></span></span>' +
-        '<span class="check" aria-hidden="true">' + (t.udn === s.tv ? "✓" : "") + '</span></button>' +
-        '<button class="lapiz" type="button" data-renombrar="' + esc(t.udn) + '" aria-label="Cambiar el nombre de ' + esc(t.nombre) + '">' +
-        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></button></div>';
-    }).join("") || (s.fase === "buscando" ? '<p class="sin-tvs">Buscando TVs…</p>'
-      : '<p class="sin-tvs">No encontré ninguna TV. Revisá que esté prendida y en el mismo wifi; si usás Kodi, abrilo antes de buscar. Mientras tanto podés ver los canales aquí.</p>'));
     renderLog();
   }
 
   // ---------- acciones ----------
-  function poner_(f) {
+  // Ver aqui: el mismo stream que recibe la TV, en el navegador. La laptop lo
+  // manda como MP4 fragmentado, que <video> reproduce sin librerias.
+  // ponytail: no alcanza el vivo; tras un anuncio filtrado queda atrasado.
+  // Volver a tocar "Ver aquí" lo pone al dia.
+  function ver(f) {
+    if (!f || !f.canal) return;
+    sel = { canal: f.canal, plataforma: f.plataforma };
+    viendo = true;
+    var video = $("video");
+    $("pantalla").classList.add("cargando");
+    video.src = "/api/ver?canal=" + encodeURIComponent(f.canal) + "&plataforma=" + encodeURIComponent(f.plataforma);
+    // Dentro del clic: asi el navegador deja arrancar con sonido.
+    video.play().catch(function () {});
+    render();
+  }
+  function cerrarVideo() {
+    viendo = false;
+    var video = $("video");
+    // Sin src el navegador corta la descarga y la laptop apaga streamlink.
+    video.removeAttribute("src");
+    video.load();
+    $("pantalla").classList.remove("cargando");
+    render();
+  }
+  // "ended": la laptop cerro el stream (canal offline o se corto el backend).
+  function cortado() {
+    if (!viendo) return;
+    var nombre = nombreVisible(sel.canal), empezo = !$("pantalla").classList.contains("cargando");
+    cerrarVideo();
+    avisar(empezo ? nombre + " se cortó aquí." : "No se pudo ver " + nombre + " aquí. El motivo está en Actividad.");
+  }
+  $("video").addEventListener("error", cortado);
+  $("video").addEventListener("ended", cortado);
+  $("video").addEventListener("playing", function () { $("pantalla").classList.remove("cargando"); });
+
+  // Un link o canal nuevo: se ve aqui y queda en "Agregados" (si no es favorito).
+  // El link de un canal se guarda como su nombre: asi coincide con el favorito.
+  function abrir(texto) {
+    var f = { canal: canalDeLink(texto) || texto, plataforma: plataformaDe(texto) };
+    ver(f);
+    pedir("/api/agregados", f);
+  }
+
+  function enviar(f) {
     if (!f || ocupado()) return;
+    if (!s.tv) {
+      alternarTV(true);
+      avisar("Elegí a qué TV mandarlo.");
+      return;
+    }
     pedir("/api/reproducir", { canal: f.canal, plataforma: f.plataforma });
   }
-  function quitar(f) {
+  function alternarFav(f) {
     if (f) pedir("/api/favoritos", { canal: f.canal, plataforma: f.plataforma });
   }
   function detener() {
     if (s && (EN_TV[s.fase] || s.fase === "error")) pedir("/api/detener");
   }
+  function deFila(b) { return (b.dataset.lista === "agr" ? s.agregados : s.favoritos)[+b.dataset.i]; }
 
-  document.getElementById("app").addEventListener("click", function (e) {
+  $("app").addEventListener("click", function (e) {
     var b = e.target.closest("button");
     if (!b || !s) return;
-    var accion = b.dataset.accion;
-    if (accion === "ver") return ver({ canal: s.canal, plataforma: s.plataforma });
-    if (accion === "cerrar-visor") return cerrarVisor();
-    if (b.dataset.ver) return ver(s.favoritos[+b.dataset.ver]);
+    var hacer = b.dataset.hacer, accion = b.dataset.accion;
+    if (hacer === "ver") return ver(deFila(b));
+    if (hacer === "tv") return enviar(deFila(b));
+    if (hacer === "fav") return alternarFav(deFila(b));
+    if (hacer === "quitar") return pedir("/api/agregados/quitar", deFila(b));
+    if (hacer === "ver-sel") return ver(sel);
+    if (hacer === "cerrar") return cerrarVideo();
+    if (hacer === "tv-sel") return enviar(sel);
+    if (hacer === "fav-sel") return alternarFav(sel);
+    if (hacer === "ver-tv") return ver({ canal: s.canal, plataforma: s.plataforma });
     if (accion === "detener") return pedir("/api/detener");
     if (accion === "buscar") return pedir("/api/buscar-tvs");
-    if (accion === "guardar") return pedir("/api/favoritos", { canal: s.canal, plataforma: s.plataforma });
     if (accion === "editar") { editando = !editando; render(); return; }
     if (b.dataset.renombrar) return abrirHoja(b.dataset.renombrar);
     if (b.dataset.tv) return pedir("/api/tv", { udn: b.dataset.tv });
-    if (b.dataset.quitar) return quitar(s.favoritos[+b.dataset.quitar]);
-    if (b.dataset.fav) {
-      var f = s.favoritos[+b.dataset.fav];
-      if (editando) return quitar(f);
-      poner_(f);
-    }
   });
 
-  // ---------- Ver aqui: el mismo stream que recibe la TV, en el navegador ----------
-  // La laptop lo manda como MP4 fragmentado, que <video> reproduce sin librerias.
-  // ponytail: no alcanza el vivo; tras un anuncio filtrado queda atrasado.
-  // Volver a tocar "Ver aquí" lo pone al dia.
-  var viendo = null;  // nombre del canal en el visor
-  function ver(f) {
-    if (!f || !f.canal) return;
-    var video = $("video"), visor = $("visor");
-    viendo = nombreVisible(f.canal);
-    poner("visor-canal", logo(f.plataforma, 16) + '<span>' + esc(viendo) + '</span>');
-    visor.classList.add("cargando");
-    visor.hidden = false;
-    video.src = "/api/ver?canal=" + encodeURIComponent(f.canal) + "&plataforma=" + encodeURIComponent(f.plataforma);
-    // Dentro del clic: asi el navegador deja arrancar con sonido.
-    video.play().catch(function () {});
-  }
-  function cerrarVisor() {
-    var video = $("video");
-    viendo = null;
-    // Sin src el navegador corta la descarga y la laptop apaga streamlink.
-    video.removeAttribute("src");
-    video.load();
-    $("visor").hidden = true;
-  }
-  // "ended": la laptop cerro el stream (canal offline o se corto el backend).
-  function cortado() {
-    if (!viendo) return;
-    var nombre = viendo, empezo = !$("visor").classList.contains("cargando");
-    cerrarVisor();
-    avisar(empezo ? nombre + " se cortó aquí." : "No se pudo ver " + nombre + " aquí. El motivo está en Actividad.");
-  }
-  $("video").addEventListener("error", cortado);
-  $("video").addEventListener("ended", cortado);
-  $("video").addEventListener("playing", function () { $("visor").classList.remove("cargando"); });
-
-  // ---------- reordenar arrastrando (solo en la compu) ----------
+  // ---------- reordenar favoritos arrastrando (solo en la compu) ----------
   function ordenDelDOM() {
-    var nodos = document.querySelectorAll("#favs-vivo .fav, #favs-off .fav");
+    var nodos = document.querySelectorAll("#favs-vivo .fila, #favs-off .fila");
     return Array.prototype.map.call(nodos, function (n) { return s.favoritos[+n.dataset.i]; }).filter(Boolean);
   }
   function soltar() {
@@ -825,10 +847,10 @@ details.log[open] summary::after { content: " ▴"; }
   if (window.Sortable) {
     ["favs-vivo", "favs-off"].forEach(function (id) {
       ordenables.push(window.Sortable.create($(id), {
-        draggable: ".fav",
+        draggable: ".fila",
         animation: 150,
         // Arrastre propio de Sortable en vez del nativo del navegador: se ve
-        // igual en todos y la tarjeta acompana al mouse sin el "fantasma" gris.
+        // igual en todos y la fila acompana al mouse sin el "fantasma" gris.
         forceFallback: true,
         disabled: !escritorio.matches,
         onStart: function () { arrastrando = true; },
@@ -872,7 +894,13 @@ details.log[open] summary::after { content: " ▴"; }
     }
   });
 
-  // ---------- cuadro "Usar en el celular" ----------
+  // ---------- cuadros "Enviar a" (TVs) y "Celular" (QR) ----------
+  function alternarTV(abrir) {
+    var cuadro = $("cuadro-tv");
+    if (abrir === undefined) abrir = cuadro.hidden;
+    cuadro.hidden = !abrir;
+    $("btn-tv").setAttribute("aria-expanded", abrir ? "true" : "false");
+  }
   function alternarQR(abrir) {
     var cuadro = $("cuadro-qr");
     if (abrir === undefined) abrir = cuadro.hidden;
@@ -881,9 +909,12 @@ details.log[open] summary::after { content: " ▴"; }
     $("btn-celular").setAttribute("aria-expanded", abrir ? "true" : "false");
     if (abrir) $("url-panel").textContent = location.host;
   }
-  $("btn-celular").addEventListener("click", function (e) { e.stopPropagation(); alternarQR(); });
+  $("btn-tv").addEventListener("click", function (e) { e.stopPropagation(); alternarQR(false); alternarTV(); });
+  $("btn-celular").addEventListener("click", function (e) { e.stopPropagation(); alternarTV(false); alternarQR(); });
   document.addEventListener("click", function (e) {
     if (!$("cuadro-qr").hidden && !$("cuadro-qr").contains(e.target)) alternarQR(false);
+    // El cuadro de TVs queda abierto mientras se elige o se renombra.
+    if (!$("cuadro-tv").hidden && !$("cuadro-tv").contains(e.target) && !$("hoja").contains(e.target) && e.target !== $("velo")) alternarTV(false);
     if (!$("menu-plat").hidden && !$("menu-plat").contains(e.target)) abrirMenuPlat(false);
   });
 
@@ -958,12 +989,14 @@ details.log[open] summary::after { content: " ▴"; }
     if (e.key === "Escape") {
       if (capaAbierta()) cerrarCapas();
       if (!$("cuadro-qr").hidden) alternarQR(false);
+      if (!$("cuadro-tv").hidden) alternarTV(false);
       if (!$("menu-plat").hidden) { abrirMenuPlat(false); $("btn-plat").focus(); }
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey || escribiendo(e.target) || capaAbierta() || !s || sinAcceso) return;
     if (e.key === "/") { e.preventDefault(); $("canal").focus(); return; }
     if (e.key === "?") { e.preventDefault(); abrirCapa("atajos"); return; }
+    if (e.key === "e" || e.key === "E") { enviar(sel); return; }
     if (e.key === "s" || e.key === "S") { detener(); return; }
     if ((e.key === "t" || e.key === "T") && s.tvs.length > 1) {
       var i = s.tvs.map(function (t) { return t.udn; }).indexOf(s.tv);
@@ -972,38 +1005,32 @@ details.log[open] summary::after { content: " ▴"; }
     }
     if (/^[1-9]$/.test(e.key)) {
       var p = vivos()[+e.key - 1];
-      if (p) poner_(p.f);
+      if (p) ver(p.f);
     }
   });
 
-  // ---------- pegar un link en cualquier parte ----------
+  // ---------- pegar un link en cualquier parte: se ve aqui ----------
   document.addEventListener("paste", function (e) {
     if (escribiendo(e.target) || capaAbierta() || !s || sinAcceso) return;
     var texto = ((e.clipboardData || window.clipboardData).getData("text") || "").trim();
     if (!/^https?:\/\/\S+$/i.test(texto)) return;
     e.preventDefault();
-    var previo = EN_TV[s.fase] && s.canal ? { canal: s.canal, plataforma: s.plataforma } : null;
-    pedir("/api/reproducir", { canal: texto, plataforma: platForm }).then(function (r) {
-      if (!r || !r.ok) return;
-      avisar("Poniendo " + nombreVisible(texto) + " en " + (tvNombre() || "la TV") + "…", "Deshacer", function () {
-        if (previo) pedir("/api/reproducir", previo);
-        else pedir("/api/detener");
-      });
-    });
+    abrir(texto);
   });
 
-  // ---------- Otro canal o link ----------
+  // ---------- link o canal escrito arriba ----------
   // La flecha aparece solo mientras hay algo escrito; Enter en el teclado tambien sirve.
   $("canal").addEventListener("input", function () { $("btn-ir").hidden = !this.value.trim(); });
   $("canal").addEventListener("keydown", function (e) { if (e.key === "Escape") this.blur(); });
   $("form").addEventListener("submit", function (e) {
     e.preventDefault();
     var entrada = $("canal");
-    var canal = entrada.value.trim();
-    if (!canal) { entrada.focus(); return; }
-    pedir("/api/reproducir", { canal: canal, plataforma: platForm }).then(function (r) {
-      if (r && r.ok) { entrada.value = ""; entrada.blur(); $("btn-ir").hidden = true; }
-    });
+    var texto = entrada.value.trim();
+    if (!texto || !s) { entrada.focus(); return; }
+    abrir(texto);
+    entrada.value = "";
+    entrada.blur();
+    $("btn-ir").hidden = true;
   });
 
   // ---------- conexion con la laptop ----------
