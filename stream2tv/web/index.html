@@ -23,6 +23,7 @@
   --borde: #2a2a30;
   --campo: #18181b;
   --capa: #17171a;
+  --seccion: #131316;
   --hueco: #1b1a22;
   --vivo: #ff5c61;
   --ambar: #e8b45a;
@@ -56,8 +57,7 @@ kbd {
 .col { display: contents; }
 #ahora { order: 1; }
 .bloque-qv { order: 2; }
-/* Pegado a la lista de Que ver: compensa el espacio entre bloques. */
-.otro { order: 3; margin-top: -30px; }
+.otro { order: 3; }
 .bloque-tv { order: 4; }
 .log { order: 5; }
 
@@ -110,14 +110,12 @@ kbd {
 .sub { font-size: 12px; color: var(--muted); }
 .sub.tenue { color: var(--tenue); }
 .de-que { font-size: 12px; color: var(--tenue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.botones { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 10px; }
-.botones.solo { grid-template-columns: 1fr; }
+.botones { display: flex; gap: 8px; margin-top: 10px; }
 .sec-btn { height: 44px; border-radius: 10px; border: 1px solid var(--borde); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
 .sec-btn.icono { width: 44px; font-size: 17px; }
 .primario { height: 44px; border-radius: 10px; background: var(--ink); color: var(--bg); font-weight: 600; padding: 0 18px; }
 
 /* ---------- Ver aqui: el stream en el navegador ---------- */
-.ver-aqui { display: none; }
 .visor { display: grid; gap: 8px; }
 .visor video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 14px; }
 .visor.cargando video { animation: latir 1.4s ease-in-out infinite; }
@@ -156,11 +154,14 @@ kbd {
 .fav.sortable-ghost { opacity: .35; }
 
 /* ---------- Otro canal o link ---------- */
-.otro { position: relative; display: flex; align-items: center; gap: 12px; min-height: 50px; border-top: 1px solid var(--line); }
-.otro.sin-favs { border-top: 0; }
+.otro {
+  position: relative; display: flex; align-items: center; gap: 12px; min-height: 52px;
+  background: var(--campo); border-radius: 12px; padding: 0 10px 0 16px;
+}
 .otro input {
   /* 16px a proposito: con menos, el iPhone hace zoom al tocar el campo. */
-  flex: 1; min-width: 0; height: 44px; border: 0; background: transparent; padding: 0;
+  /* width 0: sin esto el ancho propio del input ensanchaba la pagina en celulares angostos. */
+  flex: 1; width: 0; min-width: 0; height: 44px; border: 0; background: transparent; padding: 0;
   font-size: 16px; outline: none;
 }
 .otro input::placeholder { color: var(--muted); }
@@ -246,13 +247,31 @@ details.log[open] summary::after { content: " ▴"; }
   .espera, .hoja, .mini.cargando, .mini-hero.cargando, .ahora.entrar .hero, .visor.cargando video { animation: none; }
 }
 
+/* ---------- Celular: mas aire y cada seccion en su propia tarjeta ---------- */
+@media (max-width: 899px) {
+  main { gap: 22px; }
+  #contenido { gap: 18px; }
+  .hero { gap: 16px; }
+  .botones { margin-top: 16px; }
+  .botones .sec-btn:not(.icono) { flex: 1; }
+  .bloque-qv, .bloque-tv { background: var(--seccion); border-radius: 16px; padding: 2px 16px 4px; gap: 0; }
+  .cab { align-items: center; min-height: 48px; }
+  .cab h2 { font-size: 15px; }
+  .fav { display: flex; align-items: center; }
+  .fav-sel { flex: 1; min-width: 0; min-height: 52px; }
+  .fav.vivo .fav-sel { min-height: 68px; }
+  .ver-fila { width: 44px; height: 44px; margin-right: -10px; display: grid; place-items: center; color: var(--muted); flex: 0 0 auto; }
+  .tv-sel { min-height: 60px; }
+  .log { padding: 0 2px; }
+}
+
 /* Al final a proposito: tiene que ganarle a las reglas base de arriba. */
 /* ---------- Pantalla ancha: diseno K + escritorio v2 ---------- */
 @media (min-width: 900px) {
   body { padding-left: 40px; padding-right: 40px; }
   main { max-width: 1200px; gap: 36px; }
   .kbd { display: inline-block; }
-  .usar-cel, .btn-atajos, .ver-aqui { display: inline-flex; }
+  .usar-cel, .btn-atajos { display: inline-flex; }
   #contenido { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 48px; align-items: start; }
   .col { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
   #ahora, .bloque-qv, .otro, .bloque-tv, .log { order: 0; }
@@ -267,10 +286,9 @@ details.log[open] summary::after { content: " ▴"; }
   .titulo svg { width: 28px; height: 28px; }
   .donde { font-size: 13px; }
   .meta { font-size: 14px; }
-  .botones { display: flex; }
   .botones .sec-btn:not(.icono) { padding: 0 20px; }
+  .ver-fila { display: none; }
 
-  .otro { margin-top: 0; border-top: 0; background: var(--campo); border-radius: 12px; padding: 0 10px 0 16px; min-height: 52px; }
   .otro input { font-size: 15px; }
 
   /* Que ver: tarjetas de a 3 con miniatura; los offline, chips al final. */
@@ -298,6 +316,10 @@ details.log[open] summary::after { content: " ▴"; }
   #favs-off .fav-sel.quitando { border-color: var(--vivo); color: var(--vivo); }
   .arrastrar { font-size: 12px; color: var(--tenue); margin: 4px 0 0; }
 }
+/* En la compu todo un poco mas grande: a distancia de escritorio, los tamanos
+   pensados para el celular se veian chicos. zoom escala todo por igual. */
+@media (min-width: 900px) { body { zoom: 1.15; } }
+@media (min-width: 1500px) { body { zoom: 1.3; } }
 /* Hover en las tarjetas: titulo completo y botones. Solo con mouse. */
 @media (min-width: 900px) and (hover: hover) {
   .fav.vivo { cursor: grab; }
@@ -433,7 +455,9 @@ details.log[open] summary::after { content: " ▴"; }
     twitch: '<path fill="#9146FF" d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"></path>',
     youtube: '<rect x="1" y="4.5" width="22" height="15" rx="4.5" fill="#FF0033"></rect><path d="M10 8.8v6.4l5.6-3.2z" fill="#fff"></path>'
   };
-  var ICONO_VER = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg>';
+  function iconoVer(tam) {
+    return '<svg width="' + tam + '" height="' + tam + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg>';
+  }
   function logo(plat, tam) {
     if (!LOGOS[plat]) return "";
     return '<svg width="' + tam + '" height="' + tam + '" viewBox="0 0 24 24" role="img" aria-label="' + NOMBRE[plat] + '">' + LOGOS[plat] + '</svg>';
@@ -576,14 +600,14 @@ details.log[open] summary::after { content: " ▴"; }
       if (s.anuncios) partes.push(s.anuncios === 1 ? "1 anuncio filtrado" : s.anuncios + " anuncios filtrados");
       meta = '<div class="meta"><i class="punto"></i><span>' + partes.join(" · ") + '</span></div>';
       var guardar = !esFavorito(s.canal, s.plataforma);
-      botones = '<div class="botones' + (guardar ? "" : " solo") + '">' + detener + verAqui +
+      botones = '<div class="botones">' + detener + verAqui +
         (guardar ? '<button class="sec-btn icono" type="button" data-accion="guardar" aria-label="Guardar en Qué ver">☆</button>' : "") + '</div>';
     } else if (s.fase === "reconectando") {
       // El mensaje viene como "Reconectando... intento 2 de 5".
       var intento = /intento (\d+ de \d+)/.exec(s.mensaje || "");
       meta = '<div class="meta reconectando"><i class="espera"></i><span>Reconectando…' + (intento ? " intento " + intento[1] : "") + '</span></div>';
       sub = '<div class="sub tenue">' + esc(NOMBRE[s.plataforma] || "El sitio") + ' dejó de responder. La TV sigue conectada y vuelve sola.</div>';
-      botones = '<div class="botones solo">' + detener + verAqui + '</div>';
+      botones = '<div class="botones">' + detener + verAqui + '</div>';
     } else if (s.fase === "error") {
       meta = '<div class="meta error">' + esc(s.mensaje) + '</div>';
       sub = '<div class="sub">Probá con otro canal o volvé más tarde.</div>';
@@ -591,7 +615,7 @@ details.log[open] summary::after { content: " ▴"; }
       var texto = s.fase === "verificando" ? "Verificando en " + (NOMBRE[s.plataforma] || "el sitio") + "…"
         : s.fase === "enviando" ? "Abriendo en la TV…" : "Deteniendo…";
       meta = '<div class="meta"><i class="espera"></i><span>' + texto + '</span></div>';
-      if (s.fase !== "deteniendo") botones = '<div class="botones solo"><button class="sec-btn" type="button" data-accion="detener">Cancelar</button></div>';
+      if (s.fase !== "deteniendo") botones = '<div class="botones"><button class="sec-btn" type="button" data-accion="detener">Cancelar</button></div>';
     }
     return '<div class="hero' + (mini ? "" : " sin-mini") + '">' + mini +
       '<div class="hero-info">' + donde + titulo + meta + sub + '</div></div>' + botones;
@@ -617,9 +641,11 @@ details.log[open] summary::after { content: " ▴"; }
         '<span class="n">' + logo(f.plataforma, 16) + '<span>' + nombre + (tit ? '<small class="tit">' + esc(tit) + '</small>' : "") + '</span></span>' +
         der +
       '</button>' +
+      // En el celular no hay hover: "Ver aqui" va al lado de la fila.
+      (editando ? "" : '<button class="ver-fila" type="button" data-ver="' + p.i + '" aria-label="Ver ' + nombre + ' aquí">' + iconoVer(18) + '</button>') +
       '<div class="fav-acc"><span class="tit-completo">' + esc(e.titulo || e.categoria || "") + '</span>' +
         '<span class="btns"><button class="poner" type="button" data-fav="' + p.i + '">▶ Poner en ' + esc(tvNombre() || "la TV") + '</button>' +
-        '<button class="estrella ver" type="button" data-ver="' + p.i + '" aria-label="Ver ' + nombre + ' aquí" title="Ver aquí">' + ICONO_VER + '</button>' +
+        '<button class="estrella ver" type="button" data-ver="' + p.i + '" aria-label="Ver ' + nombre + ' aquí" title="Ver aquí">' + iconoVer(14) + '</button>' +
         '<button class="estrella" type="button" data-quitar="' + p.i + '" aria-label="Quitar ' + nombre + ' de Qué ver">★</button></span></div>' +
     '</div>';
   }
@@ -702,7 +728,6 @@ details.log[open] summary::after { content: " ▴"; }
     editar.hidden = !s.favoritos.length;
     editar.textContent = editando ? "Listo" : "Editar";
 
-    $("form").classList.toggle("sin-favs", !s.favoritos.length);
     renderMenuPlat();
     $("btn-ir").disabled = ocupado();
     $("btn-buscar").textContent = s.fase === "buscando" ? "Buscando…" : "Buscar";
