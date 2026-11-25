@@ -247,7 +247,8 @@ details.log[open] summary::after { content: " ▴"; }
 .hoja-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .hoja h2, .dialogo h2 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
 .hoja-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-.hoja input {
+.acceso { display: flex; gap: 8px; width: 100%; }
+.hoja input, .acceso input {
   height: 50px; border: 1.5px solid var(--ink); border-radius: 12px; background: #0f0f12;
   padding: 0 14px; font-size: 17px; outline: none; width: 100%;
 }
@@ -710,8 +711,12 @@ details.log[open] summary::after { content: " ▴"; }
 
   function vistaEspecial() {
     if (sinAcceso) {
-      return '<div class="centro"><h2>Este celular no tiene acceso</h2>' +
-        '<p>Escaneá con la cámara el código que muestra la terminal al abrir stream2tv, o el del botón "Celular" del panel en la compu. Se hace una sola vez.</p></div>';
+      // Un form comun: manda /?t=<codigo> y el servidor deja la cookie.
+      return '<div class="centro"><h2>Este dispositivo no tiene acceso</h2>' +
+        '<p>Escribí el código del panel o escaneá el QR del botón "Celular". Se hace una sola vez.</p>' +
+        '<form class="acceso" method="get" action="/">' +
+        '<input name="t" type="password" inputmode="numeric" autocomplete="off" placeholder="Código" aria-label="Código" required>' +
+        '<button class="btn primario" type="submit">Entrar</button></form></div>';
     }
     if (!s) return '<p class="cargando-txt">Conectando con la laptop…</p>';
     return null;

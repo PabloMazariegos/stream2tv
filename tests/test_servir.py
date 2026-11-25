@@ -108,6 +108,11 @@ class TestOpciones(unittest.TestCase):
             self.assertEqual(cli.main(argv=["--reset-key"]), 0)
         self.assertNotEqual(config.token_web(), vieja)
 
+    def test_set_key_fija_un_codigo(self):
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(argv=["--set-key", " 1234 "]), 0)
+        self.assertEqual(config.token_web(), "1234")
+
     def test_twitch2tv_arranca_el_panel_con_twitch(self):
         recibidos = []
         with mock.patch.object(cli, "servir", lambda args, plataforma_default=None: recibidos.append(plataforma_default) or 0):

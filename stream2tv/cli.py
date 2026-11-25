@@ -239,6 +239,7 @@ def construir_parser(nombre_programa, plataforma_default):
         help="IP donde escucha el panel (default: la de la red de casa; ej. la de Tailscale)",
     )
     p.add_argument("--no-browser", action="store_true", help="no abrir el panel en el navegador al arrancar")
+    p.add_argument("--set-key", metavar="CODIGO", help="fijar la clave del panel (un codigo facil de recordar)")
     p.add_argument("--reset-key", action="store_true", help="renovar la clave del panel (desautoriza a todos los celulares)")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return p
@@ -247,6 +248,11 @@ def construir_parser(nombre_programa, plataforma_default):
 def main(plataforma_default=None, argv=None, nombre_programa=None):
     parser = construir_parser(nombre_programa or "stream2tv", plataforma_default)
     args = parser.parse_args(argv)
+
+    if args.set_key:
+        config.regenerar_token_web(args.set_key.strip())
+        print("Clave del panel cambiada: se entra escribiendo ese codigo en el panel.")
+        return 0
 
     if args.reset_key:
         config.regenerar_token_web()

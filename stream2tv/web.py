@@ -185,6 +185,8 @@ class PanelWeb:
                     return self._ver({k: v[0] for k, v in parse_qs(url.query).items()})
                 self._json(404, {"error": "no existe"})
 
+            # ponytail: sin limite de intentos; con una clave corta (--set-key) solo
+            # es seguro mientras el panel escuche en Tailscale y no en la LAN.
             def _entrar_con_clave(self, clave):
                 extra = [("Location", "/")]
                 if clave_valida(clave):

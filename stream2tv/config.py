@@ -73,10 +73,11 @@ def token_web():
     return token
 
 
-def regenerar_token_web():
-    """Clave nueva: los celulares autorizados con la anterior pierden el acceso."""
+def regenerar_token_web(clave=None):
+    """Clave nueva (al azar, o la que se pase): los celulares autorizados con la
+    anterior pierden el acceso."""
     datos = cargar()
-    datos["token_web"] = secrets.token_urlsafe(16)
+    datos["token_web"] = clave or secrets.token_urlsafe(16)
     guardar(datos)
     return datos["token_web"]
 
