@@ -95,7 +95,13 @@ def runtime_js():
     Sin uno, YouTube devuelve 403 en los formatos de alta calidad y solo queda
     el progresivo de 360p.
     """
+    carpeta = os.path.dirname(sys.executable)
     for runtime in ("deno", "node", "bun"):
+        # Primero el del venv (pip install deno): un servicio de systemd no ve
+        # el PATH de la shell, donde suele estar el node de nvm.
+        junto = os.path.join(carpeta, runtime)
+        if os.path.isfile(junto) and os.access(junto, os.X_OK):
+            return f"{runtime}:{junto}"
         if shutil.which(runtime):
             return runtime
     return None

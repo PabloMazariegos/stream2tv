@@ -17,9 +17,10 @@ from stream2tv import cli, config, controlador, web
 class PanelFalso:
     instancias = []
 
-    def __init__(self, ctrl, puerto):
+    def __init__(self, ctrl, puerto, host=None):
         self.ctrl = ctrl
         self.puerto = puerto
+        self.host = host
         self.url = f"http://192.168.1.18:{puerto}/"
         self.url_con_clave = self.url + "?t=clave"
         self.detenido = False
@@ -76,6 +77,11 @@ class TestServir(unittest.TestCase):
         self.correr("--no-browser", "--web-port", "9001")
         self.assertEqual(self.abiertos, [])
         self.assertEqual(PanelFalso.instancias[0].puerto, 9001)
+
+    def test_web_host_elige_donde_escucha_el_panel(self):
+        # Como servicio: el panel solo en la IP de Tailscale, no en la LAN.
+        self.correr("--no-browser", "--web-host", "100.64.0.1")
+        self.assertEqual(PanelFalso.instancias[0].host, "100.64.0.1")
 
     def test_puerto_del_panel_ocupado_avisa(self):
         class Ocupado(PanelFalso):

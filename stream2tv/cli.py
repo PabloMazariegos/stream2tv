@@ -134,7 +134,7 @@ def servir(args, plataforma_default=None):
     from .web import PanelOcupado, PanelWeb, qr_terminal
 
     ctrl = Controlador(args.port, args.quality, args.low_latency, args.backend, plataforma_default)
-    panel = PanelWeb(ctrl, args.web_port)
+    panel = PanelWeb(ctrl, args.web_port, host=args.web_host)
     try:
         panel.iniciar()
     except PanelOcupado as e:
@@ -233,6 +233,10 @@ def construir_parser(nombre_programa, plataforma_default):
     p.add_argument(
         "--web-port", type=int, default=PUERTO_WEB_DEFECTO,
         help=f"puerto del panel web para el celular (default {PUERTO_WEB_DEFECTO})",
+    )
+    p.add_argument(
+        "--web-host", metavar="IP",
+        help="IP donde escucha el panel (default: la de la red de casa; ej. la de Tailscale)",
     )
     p.add_argument("--no-browser", action="store_true", help="no abrir el panel en el navegador al arrancar")
     p.add_argument("--reset-key", action="store_true", help="renovar la clave del panel (desautoriza a todos los celulares)")

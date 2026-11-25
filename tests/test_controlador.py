@@ -176,6 +176,40 @@ class TestConcurrencia(BaseControlador):
 
 
 class TestTVs(BaseControlador):
+    def test_sin_tv_la_busca_al_pedir_un_canal(self):
+        # Como servicio arranca con la TV apagada; despues la prenden y piden un canal.
+        with mock.patch.object(discovery, "descubrir", return_value=[]):
+            self.ctrl.buscar_tvs()
+        self.assertIsNone(self.ctrl.tv_actual)
+        self.assertTrue(self.ctrl.reproducir("xqc", "twitch"))
+        self.assertEqual(self.enviados, [("Samsung sala", "xqc")])
+
+    def test_si_la_tv_no_contesta_la_busca_y_reintenta_una_vez(self):
+        intentos = []
+
+        def reproducir(tv, url, titulo, log=print, **kw):
+            intentos.append(tv.nombre)
+            if len(intentos) == 1:
+                raise ConnectionError("la TV cambio de puerto")
+            return True
+
+        with mock.patch.object(caster, "reproducir", reproducir):
+            self.assertTrue(self.ctrl.reproducir("xqc", "twitch"))
+        self.assertEqual(len(intentos), 2)
+        self.assertEqual(self.ctrl.fase, "reproduciendo")
+
+    def test_si_la_tv_sigue_sin_contestar_no_reintenta_para_siempre(self):
+        intentos = []
+
+        def reproducir(tv, url, titulo, log=print, **kw):
+            intentos.append(tv.nombre)
+            raise ConnectionError("apagada")
+
+        with mock.patch.object(caster, "reproducir", reproducir):
+            self.assertFalse(self.ctrl.reproducir("xqc", "twitch"))
+        self.assertEqual(len(intentos), 2)
+        self.assertIsNone(self.ctrl.servidor)
+
     def test_el_stop_va_a_la_tv_que_reproduce_aunque_se_elija_otra(self):
         self.ctrl.reproducir("xqc", "twitch")  # en la Samsung
         self.ctrl.elegir_tv("uuid:kodi")

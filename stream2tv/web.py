@@ -373,8 +373,6 @@ class PanelWeb:
                 pedido = self._canal_y_plataforma(datos)
                 if pedido is None:
                     return
-                if ctrl.tv_actual is None:
-                    return self._json(409, {"error": "no hay TV elegida"})
                 # Se reserva aca, en el pedido, para que un Detener inmediato lo vea.
                 reserva = ctrl.reservar()
                 en_segundo_plano(ctrl.reproducir, *pedido, reserva)

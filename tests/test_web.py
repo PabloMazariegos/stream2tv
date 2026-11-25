@@ -168,6 +168,14 @@ class TestAcciones(BaseWeb):
         self.assertTrue(self.esperar(lambda: self.ctrl.fase == "reproduciendo"))
         self.assertEqual(self.enviados, [("Samsung sala", "xqc")])
 
+    def test_sin_tv_el_canal_igual_arranca_buscandola(self):
+        # El servicio arranca con la TV apagada: al pedir un canal se la busca.
+        self.ctrl.tv_actual = None
+        r, _ = self.pedir("POST", "/api/reproducir", {"canal": "xqc", "plataforma": "twitch"})
+        self.assertEqual(r.status, 202)
+        self.assertTrue(self.esperar(lambda: self.ctrl.fase == "reproduciendo"))
+        self.assertEqual(self.enviados, [("Samsung sala", "xqc")])
+
     def test_detener_desde_el_celular_cancela_el_arranque(self):
         liberar = threading.Event()
         self.verificar.side_effect = lambda *a, **kw: (liberar.wait(5), (True, ""))[1]

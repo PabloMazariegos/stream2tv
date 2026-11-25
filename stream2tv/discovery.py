@@ -2,6 +2,7 @@
 
 import socket
 import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
@@ -11,6 +12,14 @@ SSDP_DIRECCION = ("239.255.255.250", 1900)
 SSDP_ST = "urn:schemas-upnp-org:device:MediaRenderer:1"
 SSDP_MX = 3
 SSDP_TIMEOUT = 5
+# Las respuestas al M-SEARCH llegan por unicast a este puerto. Es fijo para
+# poder abrirlo en el firewall: las LG contestan desde un puerto al azar, asi
+# que no alcanza con aceptar lo que viene del 1900.
+SSDP_PUERTO_LOCAL = 8092
+# Dos busquedas a la vez compartirian el puerto y una se quedaria sin respuestas.
+# ponytail: el lock es por proceso; el servicio y un `stream2tv --list-tvs`
+# buscando en el mismo segundo todavia chocan (basta con volver a buscar).
+_LOCK_BUSQUEDA = threading.Lock()
 
 
 @dataclass
@@ -59,9 +68,18 @@ def _buscar_locations(timeout=SSDP_TIMEOUT):
         f"ST: {SSDP_ST}",
         "", "",
     ])
+    with _LOCK_BUSQUEDA:
+        return _buscar_desde(mensaje, timeout)
+
+
+def _buscar_desde(mensaje, timeout):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(("", 0))
+    try:
+        s.bind(("", SSDP_PUERTO_LOCAL))
+    except OSError:
+        # Ocupado por otro programa: sin firewall igual funciona con uno cualquiera.
+        s.bind(("", 0))
     s.settimeout(timeout)
     # Se manda dos veces: SSDP es UDP y el primer paquete se pierde seguido.
     for _ in range(2):
@@ -117,7 +135,7 @@ def descubrir(timeout=SSDP_TIMEOUT):
     return sorted(unicas.values(), key=lambda tv: tv.nombre)
 
 
-def desde_ip(ip, puertos=(1700, 8080, 9197, 49152, 49153, 55000)):
+def desde_ip(ip, puertos=(1346, 1700, 8080, 9197, 49152, 49153, 55000)):
     """Intenta armar una TV apuntando directo a una IP, sin SSDP.
 
     Sirve cuando el router filtra multicast entre bandas y el descubrimiento

@@ -319,9 +319,13 @@ class Controlador:
     def _vigente(self, mio):
         return mio == self._pedido
 
-    def _reproducir(self, canal, plataforma, mio):
+    def _reproducir(self, canal, plataforma, mio, reintento=False):
         if not self._vigente(mio):
             return False
+        if self.tv_actual is None:
+            # Corriendo como servicio, al arrancar la TV suele estar apagada:
+            # se la busca recien cuando se pide un canal.
+            self.buscar_tvs()
         tv = self.tv_actual
         if tv is None:
             self.log("No hay TV seleccionada.", "error")
@@ -381,6 +385,13 @@ class Controlador:
         except Exception as e:
             self._soltar_servidor()
             self.log(f"Error: {e}", "error")
+            if not reintento and self._vigente(mio):
+                # La TV pudo apagarse y volver con otra IP o puerto: se la busca
+                # de nuevo y se reintenta una sola vez.
+                self.log("Busco la TV de nuevo y reintento.")
+                self.buscar_tvs()
+                if self.tv_actual is not None:
+                    return self._reproducir(canal, plataforma, mio, reintento=True)
             self._fase(ERROR, "Error hablando con la TV")
             return False
 

@@ -76,6 +76,19 @@ class TestStreamlinkSoporta(unittest.TestCase):
         caster._sesion_streamlink = None
 
 
+class TestRuntimeJS(unittest.TestCase):
+    def test_prefiere_el_deno_del_venv(self):
+        # Un servicio de systemd no ve el node de nvm: el deno del venv si.
+        import tempfile
+        with tempfile.TemporaryDirectory() as venv:
+            deno = os.path.join(venv, "deno")
+            with open(deno, "w") as f:
+                f.write("")
+            os.chmod(deno, 0o755)
+            with mock.patch.object(caster.sys, "executable", os.path.join(venv, "python")):
+                self.assertEqual(caster.runtime_js(), f"deno:{deno}")
+
+
 class TestComandoStream(unittest.TestCase):
     def setUp(self):
         mock.patch.object(caster, "encontrar_ytdlp", return_value="/bin/yt-dlp").start()

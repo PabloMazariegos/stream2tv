@@ -16,6 +16,8 @@ dependencies = [
     "yt-dlp>=2026.8.19",
     "upnpclient>=2.0.3",
     "segno>=1.6",
+    # Runtime de JS para yt-dlp: sin uno, YouTube queda en 360p.
+    "deno>=2.4",
 ]
 
 [project.scripts]

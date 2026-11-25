@@ -5,6 +5,7 @@ Correr con:  python3 -m unittest discover -s tests
 """
 
 import io
+import socket
 import os
 import sys
 import unittest
@@ -122,6 +123,20 @@ class TestElegir(unittest.TestCase):
              mock.patch("sys.stdout", new=io.StringIO()):
             elegida = discovery.elegir([self.lg, self.samsung], interactivo=True)
         self.assertIs(elegida, self.lg)
+
+    def test_las_respuestas_ssdp_llegan_a_un_puerto_fijo(self):
+        # El firewall abre solo ese puerto: con uno al azar, UFW descartaba la respuesta de la LG.
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as lg:
+            lg.bind(("127.0.0.1", 0))  # la LG contesta desde un puerto cualquiera
+
+            enviar = socket.socket.sendto
+
+            def contestar(mensaje, destino):
+                enviar(lg, b"HTTP/1.1 200 OK\r\nLOCATION: http://192.168.0.8:1346/\r\n\r\n",
+                          ("127.0.0.1", discovery.SSDP_PUERTO_LOCAL))
+
+            with mock.patch.object(socket.socket, "sendto", lambda s, m, d: contestar(m, d)):
+                self.assertEqual(discovery._buscar_locations(timeout=1), {"http://192.168.0.8:1346/"})
 
     def test_deduplica_por_udn(self):
         # Una TV que se anuncia dos veces (dos interfaces) no debe aparecer duplicada.
